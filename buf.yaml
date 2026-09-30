@@ -1,0 +1,18 @@
+version: v2
+
+modules:
+  - path: api
+
+deps:
+  - buf.build/googleapis/googleapis
+
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+  service_suffix: Service
+
+breaking:
+  use:
+    - FILE

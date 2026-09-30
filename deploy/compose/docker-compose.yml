@@ -1,0 +1,157 @@
+# 本地开发依赖组件（架构文档 §8.2「开发：单机容器编排，只启动当前工作涉及的依赖组件」）
+#
+# 用法：
+#   docker compose -f deploy/compose/docker-compose.yml up -d
+#   docker compose -f deploy/compose/docker-compose.yml down          # 停止（保留卷）
+#   docker compose -f deploy/compose/docker-compose.yml down -v       # 停止并清除数据
+#
+# 端口统一避开本机常用端口，映射到 1xxxx 段，避免与本机其他服务冲突。
+# 数据卷落在 deploy/compose/data/（已 gitignore）。
+
+name: spreader-dev
+
+services:
+  # ===== 关系型数据库：PostgreSQL 18（§3.2.1；UUIDv7 需 18+，§3.6.16）=====
+  postgres:
+    image: postgres:18-alpine
+    container_name: spreader-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: spreader
+      POSTGRES_PASSWORD: spreader
+      POSTGRES_DB: spreader
+      # 开发环境放宽本地连接
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "15432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./init/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spreader -d spreader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spreader-dev
+
+  # ===== 缓存：Redis 7（§3.2.2；分片 Pub/Sub 需 7+，§3.6.17）=====
+  redis:
+    image: redis:7-alpine
+    container_name: spreader-redis
+    restart: unless-stopped
+    # 开发环境关闭持久化、开启 AOF 便于观察；生产按 §3.2.2 的持久化策略
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - "512mb"
+      - --maxmemory-policy
+      - allkeys-lru
+    ports:
+      - "16379:6379"
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spreader-dev
+
+  # ===== 消息队列：Kafka 4.0（KRaft 模式，§3.2.3）=====
+  kafka:
+    image: apache/kafka:4.0.0
+    container_name: spreader-kafka
+    restart: unless-stopped
+    environment:
+      # --- KRaft 单节点（combined broker + controller）---
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://127.0.0.1:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # --- 单节点开发环境的复制因子（生产按 §9.2 提高）---
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    ports:
+      - "19092:9094"
+    volumes:
+      - ./data/kafka:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - spreader-dev
+
+  # ===== 对象存储：MinIO（S3 兼容，§3.2.4 备选「自建 MinIO」）=====
+  minio:
+    image: minio/minio:latest
+    container_name: spreader-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "19000:9000"   # S3 API
+      - "19001:9001"   # 控制台
+    volumes:
+      - ./data/minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spreader-dev
+
+  # ===== 全文检索：Elasticsearch 9（§3.2.5；单节点 + 关闭安全便于开发）=====
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.4
+    container_name: spreader-elasticsearch
+    restart: unless-stopped
+    environment:
+      # 单节点发现（官方对单节点部署的规定，§3.2.5）
+      discovery.type: single-node
+      # 关闭安全与 HTTPS，仅限本地开发
+      xpack.security.enabled: "false"
+      xpack.security.http.ssl.enabled: "false"
+      # 开发环境内存限制
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      # 中文分词用发行版自带的 analysis-smartcn（§3.2.5 / S128）
+    ports:
+      - "19200:9200"
+    volumes:
+      - ./data/elasticsearch:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - spreader-dev
+
+networks:
+  spreader-dev:
+    driver: bridge

@@ -1,0 +1,90 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    # --- 错误处理 ---
+    - errcheck        # 未处理的错误
+    - errorlint       # 错误包装与比较方式
+    - nilerr          # err 非 nil 却返回 nil
+    - errname         # 错误命名约定（Err 前缀）
+    # --- 并发与资源 ---
+    - bodyclose       # 未关闭的 HTTP 响应体
+    - contextcheck    # 未传递 context
+    - copyloopvar     # 循环变量捕获
+    # --- 静态分析 ---
+    - staticcheck     # 综合静态分析（含 gosimple）
+    - govet           # 官方 vet 检查
+    - ineffassign     # 无效赋值
+    - unused          # 未使用代码
+    # --- 风格与可读性 ---
+    - revive          # 可配置风格检查（替代 golint）
+    - misspell        # 拼写错误
+    - unconvert       # 多余类型转换
+    - gocritic        # 风格与性能建议
+    - prealloc        # 切片预分配
+    - whitespace      # 多余空白
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    govet:
+      enable-all: true
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: var-naming
+        - name: range
+        - name: receiver-naming
+        - name: indent-error-flow
+        - name: empty-block
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: redefines-builtin-id
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+  exclusions:
+    generated: lax
+    rules:
+      # 测试文件放宽风格约束
+      - path: _test\.go
+        linters:
+          - gocritic
+          - prealloc
+          - revive
+      # proto 生成产物不参与检查（生成物与 proto 同目录，落在 api/<域>/v1/ 下）
+      - path: \.pb\.go$
+        linters:
+          - revive
+          - gocritic
+          - unused
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      # 本项目内部导入路径，用于分组排序
+      local-prefixes:
+        - github.com/phantom5099/spreader
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -1,0 +1,51 @@
+# ===== 私有文档 =====
+docs-hide
+docs-ignore
+
+# ===== 构建产物 =====
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# ===== Go =====
+/vendor/
+*.prof
+*.cover
+coverage.txt
+coverage.html
+
+# ===== 环境变量与密钥 =====
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+!deploy/**/*.example
+
+# ===== 本地数据卷 =====
+/data/
+.deploy-data/
+deploy/compose/data/
+
+# ===== IDE 与编辑器 =====
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===== 工具与临时文件 =====
+.workbuddy/
+tmp/
+.tmp/
+*.log
+!deploy/**/*.log.example

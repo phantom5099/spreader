@@ -1,0 +1,35 @@
+# 统一换行符与二进制识别，避免 Windows/macOS/Linux 协作出岔
+* text=auto eol=lf
+
+# 声明为文本的扩展名
+*.go        text eol=lf
+*.mod       text eol=lf
+*.sum       text eol=lf
+*.proto     text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.sh        text eol=lf
+Makefile    text eol=lf
+Dockerfile  text eol=lf
+.gitignore  text eol=lf
+
+# 二进制文件不做行尾转换
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.webp      binary
+*.pdf       binary
+*.zip       binary
+*.gz        binary
+*.exe       binary
+*.dll       binary
+*.so        binary
+*.dylib     binary
+
+# 语言统计时排除
+docs-hide/**   linguist-documentation
+docs-ignore/** linguist-documentation
