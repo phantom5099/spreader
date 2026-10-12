@@ -1,0 +1,52 @@
+/* ==========================================================================
+   ProfileEmpty：个人主页空态 / 异常态
+   不留白页
+   ========================================================================== */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 56px 32px 64px;
+}
+
+.empty__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.empty__title {
+  font-size: var(--font-lg);
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.empty__desc {
+  max-width: 36ch;
+  font-size: var(--font-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.empty__btn {
+  margin-top: 20px;
+  height: 38px;
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.empty__btn:hover {
+  background: var(--accent-hover);
+}

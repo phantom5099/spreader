@@ -1,0 +1,59 @@
+/* ==========================================================================
+   骨架屏（与 PostCard 同骨架尺寸，避免加载完成后跳版）
+   ========================================================================== */
+
+.card {
+  display: flex;
+  gap: 12px;
+  padding: var(--card-pad-y) var(--card-pad-x);
+  border-bottom: 1px solid var(--border);
+}
+
+.card__avatar {
+  flex: 0 0 var(--avatar-list);
+  width: var(--avatar-list);
+  height: var(--avatar-list);
+  border-radius: var(--radius-pill);
+  composes: skeleton-shimmer from global;
+}
+
+.card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card__head {
+  display: flex;
+  gap: 8px;
+}
+
+.line {
+  display: block;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  composes: skeleton-shimmer from global;
+}
+
+.card__media {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-media);
+  composes: skeleton-shimmer from global;
+}
+
+.card__actions {
+  margin-top: 2px;
+  display: flex;
+  gap: 56px;
+}
+
+.dot {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  composes: skeleton-shimmer from global;
+}

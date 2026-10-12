@@ -1,0 +1,228 @@
+/* ==========================================================================
+   ReportModal：举报原因选择
+   ========================================================================== */
+
+.pick {
+  padding: 0 0 8px;
+}
+
+.pick__intro {
+  padding: 4px 20px 14px;
+  font-size: var(--font-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.pick__intro strong {
+  color: var(--text-primary);
+}
+
+.reasons {
+  max-height: 48vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.reason {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 20px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.reason:hover {
+  background: var(--bg-hover);
+}
+
+.reason--on {
+  background: var(--accent-soft);
+}
+
+.reason__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reason__label {
+  font-size: var(--font-base);
+  font-weight: 700;
+}
+
+.reason__desc {
+  font-size: var(--font-xs);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.reason__check {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border-strong);
+  color: #fff;
+  transition: background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.reason__check--on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.pick__foot {
+  padding: 14px 20px 4px;
+}
+
+.pick__next {
+  width: 100%;
+  height: 42px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--font-base);
+  font-weight: 700;
+  transition: background-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+
+.pick__next:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.pick__next:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------- 第二步 ---------- */
+.detail {
+  padding: 4px 20px 20px;
+}
+
+.detail__summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail__summaryLabel {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.detail__summaryValue {
+  flex: 1 1 auto;
+  font-size: var(--font-base);
+  font-weight: 700;
+}
+
+.detail__change {
+  flex: 0 0 auto;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.detail__change:hover {
+  text-decoration: underline;
+}
+
+.detail__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 0 4px;
+}
+
+.detail__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.detail__count {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.detail__textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.detail__textarea:focus {
+  border-color: var(--accent);
+}
+
+.detail__textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ---------- 复选行 ---------- */
+.checkRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.checkRow__box {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.checkRow__text {
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+/* ---------- 提示 ---------- */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  line-height: 1.55;
+}
+
+.notice svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--warning);
+}

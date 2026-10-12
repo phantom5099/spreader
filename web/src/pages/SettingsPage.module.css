@@ -1,0 +1,75 @@
+/* ==========================================================================
+   SettingsPage：设置主页外壳
+   ========================================================================== */
+
+.page {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.page__main {
+  flex: 0 1 var(--col-main);
+  width: 100%;
+  max-width: var(--col-main);
+  min-width: 0;
+}
+
+/* ---------- 账号卡 ---------- */
+.account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px var(--card-pad-x);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.account:hover {
+  background: var(--bg-hover);
+}
+
+.account__avatar {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.account__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.account__name {
+  font-size: var(--font-base);
+  font-weight: 700;
+}
+
+.account__handle {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.account__cta {
+  flex: 0 0 auto;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.tail {
+  height: 24px;
+}

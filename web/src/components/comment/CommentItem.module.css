@@ -1,0 +1,273 @@
+/* ==========================================================================
+   CommentItem：评论项
+   同 Post Card 骨架，头像 40px，操作行只有「回复 + 点赞」
+   额外支持：作者/楼主标记、展开子回复、长评论折叠
+   ========================================================================== */
+
+.item {
+  display: flex;
+  gap: 12px;
+  padding: var(--card-pad-y) var(--card-pad-x);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.item--reply {
+  padding-left: calc(var(--card-pad-x) + 24px);
+}
+
+/* 子回复的左侧竖线（表示层级） */
+.item--reply::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--card-pad-x) + 12px);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.item__avatarCol {
+  flex: 0 0 var(--avatar-list);
+  width: var(--avatar-list);
+}
+
+.item__avatar {
+  display: block;
+  width: var(--avatar-list);
+  height: var(--avatar-list);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.item__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.item__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---------- 头部 ---------- */
+.item__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-bottom: 1px;
+}
+
+.item__name {
+  font-weight: 700;
+  font-size: var(--font-base);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 52%;
+}
+
+.item__name:hover {
+  text-decoration: underline;
+}
+
+.item__handle {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item__dot {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  flex: 0 0 auto;
+}
+
+.item__time {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  flex: 0 0 auto;
+}
+
+/* 回复给谁 */
+.item__replyingTo {
+  font-size: var(--font-sm);
+  color: var(--accent);
+  margin-bottom: 2px;
+  display: inline-block;
+}
+
+/* ---------- 徽标：作者 / 楼主 ---------- */
+.tag {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  height: 17px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 17px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.tag--author {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tag--op {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ---------- 正文 ---------- */
+.item__text {
+  font-size: var(--font-base);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.item__text--clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.item__moreText {
+  color: var(--accent);
+  font-size: var(--font-sm);
+  margin-top: 2px;
+}
+
+/* 被 @ 提及的文本 */
+.mention {
+  color: var(--accent);
+}
+
+/* ---------- 媒体缩略 ---------- */
+.item__media {
+  margin-top: 8px;
+  max-width: 260px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.item__media img {
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+  object-fit: cover;
+}
+
+/* ---------- 操作行 ---------- */
+.item__actions {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  margin-top: 4px;
+  padding-left: 0;
+}
+
+.actBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.actBtn__hit {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -7px;
+  border-radius: var(--radius-pill);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.actBtn:hover {
+  color: var(--accent);
+}
+
+.actBtn:hover .actBtn__hit {
+  background: var(--accent-soft);
+}
+
+.actBtn--like:hover,
+.actBtn--likeOn {
+  color: var(--like);
+}
+
+.actBtn--like:hover .actBtn__hit {
+  background: var(--like-soft);
+}
+
+.actBtn--likeOn .actBtn__hit {
+  animation: comment-pop var(--dur-base) var(--ease-out);
+}
+
+@keyframes comment-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.28);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---------- 查看子回复 ---------- */
+.item__repliesToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: var(--font-sm);
+  font-weight: 500;
+}
+
+.item__repliesToggle:hover {
+  text-decoration: underline;
+}
+
+.item__repliesToggle::before {
+  content: '';
+  width: 20px;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+/* 折叠态下的操作行 */
+.item__more {
+  color: var(--text-secondary);
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  transition: background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.item__more:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}

@@ -1,0 +1,17 @@
+/* ==========================================================================
+   ThirdPartyMark：第三方登录占位标识
+   用途：登录/绑定页中代表「第三方账号」的图标位。
+   ========================================================================== */
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+.mark svg {
+  display: block;
+}

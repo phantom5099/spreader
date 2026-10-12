@@ -1,0 +1,120 @@
+/* ==========================================================================
+   操作行
+   回复 / 转推 / 点赞 / 书签 / 浏览量
+   ========================================================================== */
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 480px;
+  margin-left: -6px;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-variant-numeric: tabular-nums;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+/* 图标圆形 hover 底（34px） */
+.action__hit {
+  width: 34px;
+  height: 34px;
+  margin: -8px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.action__count {
+  min-width: 0;
+  padding-left: 2px;
+}
+
+/* ---------- 各项激活/hover 语义色 ---------- */
+.action--reply:hover,
+.action--reply:focus-visible {
+  color: var(--accent);
+}
+.action--reply:hover .action__hit {
+  background: var(--accent-soft);
+}
+
+.action--repost:hover,
+.action--repost:focus-visible {
+  color: var(--repost);
+}
+.action--repost:hover .action__hit {
+  background: var(--repost-soft);
+}
+.action--repost.action--on {
+  color: var(--repost);
+}
+
+.action--like:hover,
+.action--like:focus-visible {
+  color: var(--like);
+}
+.action--like:hover .action__hit {
+  background: var(--like-soft);
+}
+.action--like.action--on {
+  color: var(--like);
+}
+
+.action--bookmark:hover,
+.action--bookmark:focus-visible {
+  color: var(--accent);
+}
+.action--bookmark:hover .action__hit {
+  background: var(--accent-soft);
+}
+.action--bookmark.action--on {
+  color: var(--accent);
+}
+
+.action--view {
+  cursor: default;
+  color: var(--text-secondary);
+}
+
+.action--view:hover {
+  color: var(--text-secondary);
+}
+
+/* ---------- 图标动画 ---------- */
+.icon {
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.action--on .icon {
+  animation: pop var(--dur-slow) var(--ease-out);
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.28);
+  }
+  60% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---------- 评论模式（精简：仅回复 + 点赞）---------- */
+.actions--compact {
+  max-width: 220px;
+  gap: 32px;
+  justify-content: flex-start;
+}

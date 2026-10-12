@@ -1,0 +1,202 @@
+/* ==========================================================================
+   ImageEditorModal：图片编辑
+   裁剪 | 旋转 | 亮度 | 对比度 | 滤镜 | 撤销 | 保存
+   ========================================================================== */
+
+.headBtn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.headBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.headBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ---------- 预览舞台 ---------- */
+.stage {
+  display: grid;
+  place-items: center;
+  min-height: 300px;
+  max-height: 52vh;
+  padding: 20px;
+  background: #0a0a0a;
+  overflow: hidden;
+}
+
+.stage img {
+  max-width: 100%;
+  max-height: 46vh;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- 参数面板 ---------- */
+.panel {
+  border-top: 1px solid var(--border);
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  overflow-x: auto;
+}
+
+/* 裁剪比例 */
+.cropRow {
+  display: flex;
+  gap: 10px;
+}
+
+.cropChip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 62px;
+  padding: 8px 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  transition: border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.cropChip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cropChip__box {
+  width: 34px;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+}
+
+/* 旋转 */
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.rotBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.rotBtn:hover {
+  background: var(--bg-hover);
+}
+
+/* 滑块 */
+.slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: var(--accent);
+  height: 4px;
+}
+
+.sliderVal {
+  flex: 0 0 auto;
+  min-width: 34px;
+  text-align: right;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 滤镜 */
+.filterRow {
+  display: flex;
+  gap: 8px;
+}
+
+.filterCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.filterCell--on {
+  border-color: var(--accent);
+}
+
+.filterCell__thumb {
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radius-sm);
+  background-size: cover;
+  background-position: center;
+  display: block;
+}
+
+.filterCell__label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.filterCell--on .filterCell__label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ---------- 工具栏 ---------- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.toolBtn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 58px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  transition: background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.toolBtn:hover {
+  background: var(--bg-hover);
+}
+
+.toolBtn--on {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 700;
+}

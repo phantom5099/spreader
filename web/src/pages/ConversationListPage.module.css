@@ -1,0 +1,167 @@
+/* ==========================================================================
+   ConversationListPage：会话列表
+   ========================================================================== */
+
+.page {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.page__main {
+  flex: 0 1 var(--col-main);
+  width: 100%;
+  max-width: var(--col-main);
+  min-width: 0;
+}
+
+/* ---------- 头部 ---------- */
+.head {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: var(--header-h);
+  padding: 0 12px 0 var(--card-pad-x);
+  background: var(--bg-frost);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.head__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-lg);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.head__badge {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.head__new {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.head__new:hover {
+  background: var(--bg-hover);
+}
+
+/* ---------- 搜索 ---------- */
+.searchWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px var(--card-pad-x);
+  padding: 0 12px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.searchWrap:focus-within {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+.searchWrap__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--text-tertiary);
+}
+
+.searchWrap__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+}
+
+.searchWrap__input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.searchWrap__clear {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--text-tertiary);
+  color: var(--bg);
+}
+
+/* ---------- 分区头 ---------- */
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px var(--card-pad-x) 8px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+/* ---------- 空态 ---------- */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 64px 32px;
+  color: var(--text-secondary);
+}
+
+.empty__title {
+  margin-top: 14px;
+  font-size: var(--font-lg);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.empty__desc {
+  margin-top: 6px;
+  max-width: 34ch;
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+
+.empty__btn {
+  margin-top: 18px;
+  height: 36px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.tail {
+  height: 24px;
+}

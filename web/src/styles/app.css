@@ -1,0 +1,48 @@
+/* ==========================================================================
+   应用级补充样式（token 之外的少量全局规则）
+   ========================================================================== */
+
+/* 滚动锚点补偿：吸顶 Tab 高度 53px */
+:target {
+  scroll-margin-top: calc(var(--header-h) + 8px);
+}
+
+/* 应用根节点占满高度 */
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* 横向溢出裁掉（窄屏导航收窄时可能出现 1px 抖动）
+   必须用 clip 而不是 hidden：
+   hidden 会让 html/body 变成滚动容器，后代的 position:sticky 会因此失效
+   （左导航、信息流吸顶 Tab 都会跟着页面滚走）；
+   clip 不创建滚动容器，因此不影响 sticky。 */
+html,
+body {
+  overflow-x: clip;
+}
+
+/* 隐藏原生 search 输入框的默认清除按钮（我们自绘了一个） */
+input[type='search']::-webkit-search-decoration,
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-results-button,
+input[type='search']::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* --------------------------------------------------------------------------
+   主题切换过渡
+   只在主题/字号变化时给背景与文字一个短过渡，避免切换瞬间的硬跳变。
+   颜色变量本身不做 transition —— 那样会让所有 hover 都变慢。
+   -------------------------------------------------------------------------- */
+html {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+body {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}

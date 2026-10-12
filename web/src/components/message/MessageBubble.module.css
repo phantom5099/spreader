@@ -1,0 +1,249 @@
+/* ==========================================================================
+   MessageBubble：消息气泡
+   自己靠右（主色背景白字），对方靠左（浅灰背景深字）
+   ========================================================================== */
+
+.recalledWrap {
+  display: flex;
+  justify-content: center;
+  padding: 6px 16px;
+}
+
+.recalled {
+  font-size: var(--font-xs);
+  font-style: italic;
+  color: var(--text-tertiary);
+}
+
+/* ---------- 行 ---------- */
+.line {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 4px var(--card-pad-x);
+}
+
+.line--mine {
+  flex-direction: row-reverse;
+}
+
+.line--theirs {
+  flex-direction: row;
+}
+
+.line__avatar {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.line__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.line__stack {
+  display: flex;
+  flex-direction: column;
+  max-width: min(74%, 420px);
+  min-width: 0;
+}
+
+.line--mine .line__stack {
+  align-items: flex-end;
+}
+
+.line__sender {
+  margin: 0 2px 3px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.line__bubbleRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.line--mine .line__bubbleRow {
+  flex-direction: row-reverse;
+}
+
+/* ---------- 气泡 ---------- */
+.bubble {
+  min-width: 0;
+  padding: 9px 13px;
+  border-radius: 18px;
+  font-size: var(--font-base);
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.bubble--mine {
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 6px;
+}
+
+.bubble--theirs {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-bottom-left-radius: 6px;
+}
+
+.bubble__text {
+  white-space: pre-wrap;
+}
+
+/* ---------- 图片消息 ---------- */
+.bubble__image {
+  display: block;
+  margin: 2px 0 0;
+  max-width: 260px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.bubble__image img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ---------- 视频消息 ---------- */
+.bubble__video {
+  max-width: 280px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #000;
+}
+
+.bubble__video video {
+  width: 100%;
+  display: block;
+}
+
+/* ---------- 动态分享卡片 ---------- */
+.postCard {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  min-width: 220px;
+  margin-top: 2px;
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.postCard:hover {
+  background: var(--bg-elevated);
+}
+
+.postCard__media {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.postCard__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.postCard__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  justify-content: center;
+}
+
+.postCard__label {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.postCard__text {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---------- 状态与撤回 ---------- */
+.line__meta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.status {
+  display: inline-flex;
+  color: var(--text-tertiary);
+}
+
+.status--read {
+  color: var(--accent);
+}
+
+.status--error {
+  color: var(--danger);
+}
+
+.line__recall {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.line:hover .line__recall,
+.line__recall:focus-visible {
+  opacity: 1;
+}
+
+.line__recall:hover {
+  color: var(--danger);
+  text-decoration: underline;
+}
+
+/* ---------- 时间 ---------- */
+.line__time {
+  margin: 2px 4px 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.line:hover .line__time {
+  opacity: 1;
+}
+
+/* 触屏没有 hover：直接常显 */
+@media (hover: none) {
+  .line__time,
+  .line__recall {
+    opacity: 1;
+  }
+}

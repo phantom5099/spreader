@@ -1,0 +1,264 @@
+/* ==========================================================================
+   ConversationInfoPanel：会话设置 / 群聊设置
+   "分组列表"范式：左标签 + 右控件
+   ========================================================================== */
+
+.head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 22px 20px 18px;
+  border-bottom: 8px solid var(--bg-elevated);
+}
+
+.head__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-elevated);
+  margin-bottom: 6px;
+}
+
+.head__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.head__title {
+  font-size: var(--font-lg);
+  font-weight: 800;
+  text-align: center;
+}
+
+.head__sub {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.head__link {
+  margin-top: 4px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.head__link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 分组 ---------- */
+.group {
+  padding: 6px 0;
+  border-bottom: 8px solid var(--bg-elevated);
+}
+
+.group:last-child {
+  border-bottom: none;
+  padding-bottom: 16px;
+}
+
+.group__label {
+  padding: 10px 20px 6px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+/* ---------- 设置行 ---------- */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+}
+
+.row__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--text-secondary);
+}
+
+.row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.row__label {
+  font-size: var(--font-base);
+  font-weight: 600;
+}
+
+.row__desc {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.row__control {
+  flex: 0 0 auto;
+}
+
+/* ---------- 开关 ---------- */
+.switch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+.switch--on {
+  background: var(--accent);
+}
+
+.switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.switch--on .switch__knob {
+  transform: translateX(18px);
+}
+
+/* ---------- 成员 ---------- */
+.memberSearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 20px 10px;
+  padding: 0 12px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+}
+
+.memberSearch input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+}
+
+.memberSearch input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.memberSearch svg {
+  color: var(--text-tertiary);
+  flex: 0 0 auto;
+}
+
+.members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 20px 4px;
+}
+
+.member {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+.member__avatar {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.member__avatar img {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  object-fit: cover;
+}
+
+.member__online {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--repost);
+  border: 2px solid var(--bg-elevated);
+  box-sizing: content-box;
+}
+
+.member__name {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member__role {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.members__empty {
+  width: 100%;
+  padding: 12px 0;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* ---------- 分组动作按钮 ---------- */
+.group__action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 20px;
+  font-size: var(--font-base);
+  font-weight: 600;
+  text-align: left;
+  color: var(--text-primary);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.group__action:hover {
+  background: var(--bg-hover);
+}
+
+.group__action--danger {
+  color: var(--danger);
+}
+
+.group__action--danger:hover {
+  background: var(--danger-soft);
+}
