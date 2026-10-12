@@ -2,25 +2,6 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## 关于本项目
-
-spreader 是一份**独立实现**的开源软件。其用户界面为独立设计与实现，
-**不包含**任何第三方产品的源代码、设计文件、图像素材、图标素材或文案。
-
-信息流形态属于业界通用的公开交互范式，本项目与其参考对象
-（包括 X Corp. 及其 X / Twitter 产品）**不存在**任何关联、赞助、认可或合作关系。
-
-## 许可与第三方声明
-
-本项目采用 [MIT License](LICENSE)。
-
-**素材来源**：仓库内不含任何第三方图像、图标或字体文件。头像与配图均为程序生成的
-SVG 数据 URI（`web/src/mocks/placeholders.ts`），图标来自 Lucide（ISC 许可），
-字体使用系统内置字体族，文案全部原创。
-
-**第三方依赖**：均为宽松许可（MIT / ISC / Apache-2.0），无 copyleft 传染性条款；
-各依赖的原始许可声明随其 npm 包分发。清单见 `docs-ignore/licenses.md`（私有文档）。
-
 ## 技术栈
 
 | 层 | 选型 | 架构依据 |
@@ -131,6 +112,26 @@ make lint          # golangci-lint
 make compose-up    # 启动本地依赖
 make compose-down  # 停止本地依赖并清理卷
 ```
+
+### Web 前端（React）
+
+前端位于 `web/`，是独立的 Vite 项目，不依赖任何后端服务即可运行（数据层为本地 mock）。
+
+**前置要求**：[Bun](https://bun.sh) 1.x —— 仓库用 `web/bun.lock` 锁定依赖。
+
+```bash
+cd web
+
+bun install        # 安装依赖（首次）
+
+bun run dev        # 启动开发服务器 → http://localhost:5173
+bun run build      # 类型检查 + 生产构建 → web/dist
+bun run preview    # 本地预览构建产物
+bun run typecheck  # 仅类型检查
+```
+
+> **Demo 账号**：登录页内置可用账号 `admin@admin` / `123456`（页面上有一键填入按钮）。
+> 首次打开默认即为已登录状态，退出登录后才会进入登录页。
 
 ## 约定
 

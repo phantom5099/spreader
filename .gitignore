@@ -20,6 +20,12 @@ docs-ignore
 coverage.txt
 coverage.html
 
+# ===== Web 前端（web/ 是独立的 Vite 项目）=====
+web/node_modules/
+web/dist/
+web/shots/
+web/.vite/
+
 # ===== 环境变量与密钥 =====
 .env
 .env.local
