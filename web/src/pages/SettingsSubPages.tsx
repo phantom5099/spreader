@@ -6,7 +6,14 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { SettingsGroup, SettingsRow, SettingsSwitch } from '@/components/settings/SettingsRow';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { toast } from '@/stores/toastStore';
-import { CURRENT_USER } from '@/mocks/currentUser';
+import { CURRENT_USER, CURRENT_USER_CONTACTS } from '@/mocks/currentUser';
+import {
+  INTEREST_TOPICS,
+  MY_INTERESTS,
+  MY_TAGS,
+  NOTIFICATION_SETTINGS,
+  QUIET_HOURS,
+} from '@/mocks/settings';
 import styles from './SettingsSubPage.module.css';
 
 /* -------------------------------------------------------------------------- */
@@ -15,8 +22,8 @@ import styles from './SettingsSubPage.module.css';
 
 export function SettingsAccountPage() {
   const navigate = useNavigate();
-  const [phone, setPhone] = useState('138****6621');
-  const [email, setEmail] = useState('zhixia@example.com');
+  const phone = CURRENT_USER_CONTACTS.phone;
+  const [email, setEmail] = useState(CURRENT_USER_CONTACTS.email);
 
   return (
     <AppShell>
@@ -51,9 +58,12 @@ export function SettingsAccountPage() {
               desc={email}
               control={<span className={styles.link}>更换</span>}
               onClick={() => {
-                setEmail(email === 'zhixia@example.com' ? 'zhixia.backup@example.com' : 'zhixia@example.com');
+                setEmail(
+                  email === CURRENT_USER_CONTACTS.email
+                    ? CURRENT_USER_CONTACTS.backupEmail
+                    : CURRENT_USER_CONTACTS.email,
+                );
                 toast.success('已切换备用邮箱（Demo）');
-                setPhone(phone);
               }}
             />
           </SettingsGroup>
@@ -94,14 +104,9 @@ export function SettingsAccountPage() {
 /*  偏好设置                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const TOPIC_OPTIONS = [
-  '科技', '艺术', '生活', '摄影', '设计', '读书',
-  '旅行', '美食', '健身', '音乐', '影视', '职场',
-];
-
 export function SettingsPreferencesPage() {
   const navigate = useNavigate();
-  const [picked, setPicked] = useState<Set<string>>(new Set(['科技', '摄影', '生活']));
+  const [picked, setPicked] = useState<Set<string>>(new Set(MY_INTERESTS));
   const [personalize, setPersonalize] = useState(true);
   const [allowFollowSuggest, setAllowFollowSuggest] = useState(true);
 
@@ -124,7 +129,7 @@ export function SettingsPreferencesPage() {
             desc={`选择你感兴趣的方向（已选 ${picked.size} 个）。至少要选 1 个才能开启个性化推荐。`}
           >
             <div className={styles.chips}>
-              {TOPIC_OPTIONS.map((t) => {
+              {INTEREST_TOPICS.map((t) => {
                 const on = picked.has(t);
                 return (
                   <button
@@ -184,37 +189,10 @@ export function SettingsPreferencesPage() {
 /*  通知设置                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const NOTIF_GROUPS: Array<{ title: string; rows: Array<{ key: string; label: string; desc?: string; on: boolean }> }> = [
-  {
-    title: '互动',
-    rows: [
-      { key: 'like', label: '点赞', on: true },
-      { key: 'reply', label: '回复', desc: '有人回复你的动态时通知', on: true },
-      { key: 'repost', label: '转推与引用', on: true },
-      { key: 'mention', label: '提及', desc: '有人在动态中提到你', on: true },
-    ],
-  },
-  {
-    title: '关系',
-    rows: [
-      { key: 'follow', label: '新粉丝', on: true },
-      { key: 'follow_post', label: '你关注的人发帖', desc: '开启后会比较吵', on: false },
-      { key: 'message', label: '新消息', on: true },
-    ],
-  },
-  {
-    title: '其他',
-    rows: [
-      { key: 'system', label: '系统通知', desc: '审核结果、账号安全提醒', on: true },
-      { key: 'recommend', label: '推荐与活动', on: false },
-    ],
-  },
-];
-
 export function SettingsNotificationsPage() {
   const navigate = useNavigate();
   const [state, setState] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(NOTIF_GROUPS.flatMap((g) => g.rows.map((r) => [r.key, r.on]))),
+    Object.fromEntries(NOTIFICATION_SETTINGS.flatMap((g) => g.rows.map((r) => [r.key, r.on]))),
   );
   const [quiet, setQuiet] = useState(true);
 
@@ -230,12 +208,12 @@ export function SettingsNotificationsPage() {
           >
             <SettingsRow
               label="免打扰时段"
-              desc={quiet ? '每天 22:00 – 次日 08:00' : '当前关闭'}
+              desc={quiet ? `每天 ${QUIET_HOURS.start} – 次日 ${QUIET_HOURS.end}` : '当前关闭'}
               control={<SettingsSwitch checked={quiet} onChange={setQuiet} />}
             />
           </SettingsGroup>
 
-          {NOTIF_GROUPS.map((g) => (
+          {NOTIFICATION_SETTINGS.map((g) => (
             <SettingsGroup key={g.title} title={g.title}>
               {g.rows.map((r) => (
                 <SettingsRow
@@ -367,15 +345,9 @@ export function SettingsPrivacyPage() {
 /*  个性化标签管理                                                         */
 /* -------------------------------------------------------------------------- */
 
-const INITIAL_TAGS = [
-  '前端工程化', '设计系统', '摄影构图', '独立开发', '手冲咖啡',
-  '城市漫步', '播客', '读书笔记', '远程办公', '字体设计',
-  '开源', '效率工具', '深夜emo', '爬山', '胶片',
-];
-
 export function SettingsTagsPage() {
   const navigate = useNavigate();
-  const [tags, setTags] = useState<string[]>(INITIAL_TAGS);
+  const [tags, setTags] = useState<string[]>(MY_TAGS);
   const [clearOpen, setClearOpen] = useState(false);
 
   const remove = (t: string) => {

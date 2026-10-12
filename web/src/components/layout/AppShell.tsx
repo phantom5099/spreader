@@ -7,12 +7,17 @@ import styles from './AppShell.module.css';
 interface AppShellProps {
   children: ReactNode;
   aside?: ReactNode;
+  /**
+   * 窄屏右下角的悬浮发帖按钮。
+   * 沉浸式页面（整屏播放）关掉它：那里右下角已经让给画面自己的操作条。
+   */
+  fab?: boolean;
 }
 
 /**
  * 应用外壳：左导航 + 主列 + 右栏 + 窄屏底部 Tab
  */
-export function AppShell({ children, aside }: AppShellProps) {
+export function AppShell({ children, aside, fab = true }: AppShellProps) {
   return (
     <div className={styles.shell}>
       <div
@@ -39,7 +44,7 @@ export function AppShell({ children, aside }: AppShellProps) {
       </div>
 
       <BottomTabBar />
-      <ComposeFab />
+      {fab ? <ComposeFab /> : null}
     </div>
   );
 }

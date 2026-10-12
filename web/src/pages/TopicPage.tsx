@@ -9,6 +9,7 @@ import { FollowButton } from '@/components/profile/FollowButton';
 import { toast } from '@/stores/toastStore';
 import { useFeedStore } from '@/stores/feedStore';
 import { ALL_FEED_ITEMS, TRENDS } from '@/mocks/feed';
+import { findTopic } from '@/mocks/topics';
 import { coverDataUri } from '@/mocks/users';
 import { formatCount } from '@/utils/format';
 import styles from './TopicPage.module.css';
@@ -35,8 +36,10 @@ export function TopicPage() {
 
   const cover = useMemo(() => coverDataUri(`topic_${name}`), [name]);
 
-  /** 话题元信息：命中趋势池则用真实数字，否则确定性派生 */
+  /** 话题元信息：优先取话题广场的登记信息，其次趋势池，都没有则确定性派生 */
   const meta = useMemo(() => {
+    const known = findTopic(name);
+    if (known) return { post_count: known.post_count, category: known.category };
     const hit = TRENDS.find((t) => t.topic === name);
     if (hit) return { post_count: hit.post_count, category: hit.category };
     const seed = [...name].reduce((a, c) => a + c.charCodeAt(0), 0);

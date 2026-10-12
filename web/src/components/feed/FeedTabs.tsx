@@ -1,11 +1,9 @@
-import { Settings2 } from 'lucide-react';
 import type { FeedTab } from '@/types/feed';
 import styles from './FeedTabs.module.css';
 
 interface FeedTabsProps {
   value: FeedTab;
   onChange: (tab: FeedTab) => void;
-  onOpenSettings?: () => void;
 }
 
 const TABS: Array<{ key: FeedTab; label: string }> = [
@@ -17,7 +15,7 @@ const TABS: Array<{ key: FeedTab; label: string }> = [
  * 吸顶 Tab 栏
  * 只有两个来源，所以不滚动；若要扩展成多 Tab，再引入横向滚动 + 自动居中。
  */
-export function FeedTabs({ value, onChange, onOpenSettings }: FeedTabsProps) {
+export function FeedTabs({ value, onChange }: FeedTabsProps) {
   return (
     <div className={styles.ftabs} role="tablist" aria-label="信息流来源">
       {TABS.map(({ key, label }) => {
@@ -37,15 +35,6 @@ export function FeedTabs({ value, onChange, onOpenSettings }: FeedTabsProps) {
           </button>
         );
       })}
-
-      <button
-        type="button"
-        className={styles.ftabs__settings}
-        aria-label="信息流偏好设置"
-        onClick={onOpenSettings}
-      >
-        <Settings2 size={19} strokeWidth={1.9} aria-hidden />
-      </button>
     </div>
   );
 }

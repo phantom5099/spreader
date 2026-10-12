@@ -3,21 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, MapPin, RefreshCw } from 'lucide-react';
 import { avatarDataUri } from '@/mocks/placeholders';
 import { coverDataUri } from '@/mocks/users';
+import { fetchSuggestedUsers } from '@/mocks/api';
 import { toast } from '@/stores/toastStore';
+import type { UserSummary } from '@/types/user';
 import styles from './SignupProfilePage.module.css';
 
 const NICKNAME_MAX = 20;
 const BIO_MAX = 160;
-
-/** 推荐关注：注册完成后一屏选完，避免新账号首页空荡 */
-const SUGGESTED = [
-  { handle: 'linwan', nickname: '林晚', bio: '写代码也写字。' },
-  { handle: 'qiyu', nickname: '祁遇', bio: '产品经理，关注工具与效率。' },
-  { handle: 'shenyan', nickname: '沈砚', bio: '摄影 / 城市观察' },
-  { handle: 'yuchen', nickname: '与尘', bio: '开源维护者，偶尔写长文。' },
-  { handle: 'hejing', nickname: '何静', bio: '做设计的，喜欢研究排版。' },
-  { handle: 'muyan', nickname: '慕言', bio: '每天读一点书。' },
-];
 
 /**
  * 注册后补充信息页
@@ -33,6 +25,7 @@ export function SignupProfilePage() {
   const [avatarSeed, setAvatarSeed] = useState(() => `new_${Date.now()}`);
   const [coverSeed, setCoverSeed] = useState(() => `cover_${Date.now()}`);
   const [followed, setFollowed] = useState<Set<string>>(new Set());
+  const [suggested, setSuggested] = useState<UserSummary[]>([]);
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -40,6 +33,17 @@ export function SignupProfilePage() {
 
   useEffect(() => {
     nicknameRef.current?.focus();
+  }, []);
+
+  /* 推荐关注由服务端下发，与右栏推荐同源 */
+  useEffect(() => {
+    let alive = true;
+    void fetchSuggestedUsers(6).then((list) => {
+      if (alive) setSuggested(list);
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const nicknameError = useMemo(() => {
@@ -160,7 +164,9 @@ export function SignupProfilePage() {
               maxLength={NICKNAME_MAX + 6}
               placeholder="别人会这样称呼你"
               onChange={(e) => setNickname(e.target.value)}
-              onBlur={() => setTouched(true)}
+              onBlur={() => {
+                if (nickname.trim().length > 0) setTouched(true);
+              }}
             />
             {touched && nicknameError ? (
               <span className={styles.field__err}>{nicknameError}</span>
@@ -208,12 +214,15 @@ export function SignupProfilePage() {
           </div>
 
           <ul className={styles.rec__list}>
-            {SUGGESTED.map((u) => {
+            {suggested.length === 0 ? (
+              <li className={styles.rec__hint}>正在为你挑选…</li>
+            ) : null}
+            {suggested.map((u) => {
               const on = followed.has(u.handle);
               return (
                 <li key={u.handle} className={styles.recRow}>
                   <span className={styles.recRow__avatar}>
-                    <img src={avatarDataUri(u.handle, u.nickname[0] ?? 'U')} alt="" />
+                    <img src={u.avatar_url} alt="" />
                   </span>
                   <span className={styles.recRow__body}>
                     <span className={styles.recRow__name}>
@@ -229,7 +238,7 @@ export function SignupProfilePage() {
                     aria-pressed={on}
                     onClick={() => toggleFollow(u.handle)}
                   >
-                    {on ? '已关注' : '关注'}
+                    {on ? '取消关注' : '关注'}
                   </button>
                 </li>
               );

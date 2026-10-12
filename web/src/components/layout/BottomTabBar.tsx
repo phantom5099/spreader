@@ -1,40 +1,36 @@
-import { NavLink } from 'react-router-dom';
-import { Home, Search, Bell, Mail, CircleUserRound } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { TABBAR_ITEMS, isActivePath } from './navItems';
 import { shellStyles } from './AppShell';
 import styles from './BottomTabBar.module.css';
 
-/** 窄屏底部 Tab：5 个一级入口（导航不超 5 项） */
-const TABS = [
-  { to: '/', label: '首页', icon: Home, badge: 0 },
-  { to: '/explore', label: '发现', icon: Search, badge: 0 },
-  { to: '/notifications', label: '通知', icon: Bell, badge: 3 },
-  { to: '/messages', label: '消息', icon: Mail, badge: 2 },
-  { to: '/me', label: '我', icon: CircleUserRound, badge: 0 },
-];
-
-function tabClass(isActive: boolean): string {
-  const active = isActive ? styles['tabbar__item--active'] : '';
-  return [styles.tabbar__item, active].filter(Boolean).join(' ');
+function tabClass(active: boolean): string {
+  const on = active ? styles['tabbar__item--active'] : '';
+  return [styles.tabbar__item, on].filter(Boolean).join(' ');
 }
 
 export function BottomTabBar() {
+  const { pathname } = useLocation();
+
   return (
     <nav className={shellStyles.shell__tabbar} aria-label="底部导航">
       <div className={styles.tabbar__inner}>
-        {TABS.map((tab) => (
-          <NavLink
-            key={tab.to}
-            to={tab.to}
-            end={tab.to === '/'}
-            className={({ isActive }) => tabClass(isActive)}
-          >
-            <span className={styles.tabbar__icon}>
-              <tab.icon size={24} strokeWidth={1.9} aria-hidden />
-              {tab.badge ? <span className={styles.tabbar__badge}>{tab.badge}</span> : null}
-            </span>
-            <span className={styles.tabbar__label}>{tab.label}</span>
-          </NavLink>
-        ))}
+        {TABBAR_ITEMS.map((tab) => {
+          const active = isActivePath(tab.to, pathname);
+          return (
+            <Link
+              key={tab.to}
+              to={tab.to}
+              className={tabClass(active)}
+              aria-current={active ? 'page' : undefined}
+            >
+              <span className={styles.tabbar__icon}>
+                <tab.icon size={24} strokeWidth={1.9} aria-hidden />
+                {tab.badge ? <span className={styles.tabbar__badge}>{tab.badge}</span> : null}
+              </span>
+              <span className={styles.tabbar__label}>{tab.label}</span>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

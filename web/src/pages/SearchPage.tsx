@@ -13,6 +13,7 @@ import { UserRow } from '@/components/profile/UserRow';
 import { Highlight } from '@/components/search/Highlight';
 import { toast } from '@/stores/toastStore';
 import { useFeedStore } from '@/stores/feedStore';
+import { useSearchHistoryStore } from '@/stores/searchHistoryStore';
 import { ALL_FEED_ITEMS, TRENDS } from '@/mocks/feed';
 import { ALL_PROFILES } from '@/mocks/users';
 import { formatCount } from '@/utils/format';
@@ -21,26 +22,8 @@ import styles from './SearchPage.module.css';
 
 type ResultTab = 'top' | 'users' | 'posts' | 'topics';
 
-const HISTORY_KEY = 'spreader.searchHistory.v1';
-const MAX_HISTORY = 10;
-
-function readHistory(): string[] {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    const arr = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : [];
-  } catch {
-    return [];
-  }
-}
-
 /**
  * 搜索页
- * 三段结构：
- *   ① 未输入 → 历史搜索（可清空）+ 推荐话题
- *   ② 输入中 → 联想词（实时）
- *   ③ 提交后 → 三 Tab：用户 / 动态 / 话题
- * 关键词高亮 --accent
  */
 export function SearchPage() {
   const navigate = useNavigate();
@@ -51,8 +34,13 @@ export function SearchPage() {
   const [query, setQuery] = useState(initialQ);
   const [submitted, setSubmitted] = useState(initialQ);
   const [tab, setTab] = useState<ResultTab>('top');
-  const [history, setHistory] = useState<string[]>(readHistory);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  /* 搜索历史走统一的数据层，组件不再自己碰本地存储 */
+  const history = useSearchHistoryStore((s) => s.items);
+  const pushHistory = useSearchHistoryStore((s) => s.push);
+  const removeHistory = useSearchHistoryStore((s) => s.remove);
+  const clearHistory = useSearchHistoryStore((s) => s.clear);
 
   /* 信息流里的互动方法复用（搜索结果里的卡片同样可点赞） */
   const toggleLike = useFeedStore((s) => s.toggleLike);
@@ -75,23 +63,14 @@ export function SearchPage() {
     (raw: string) => {
       const q = raw.trim();
       if (!q) return;
-      setHistory((prev) => {
-        const next = [q, ...prev.filter((x) => x !== q)].slice(0, MAX_HISTORY);
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-        return next;
-      });
+      pushHistory(q);
       setSubmitted(q);
       setQuery(q);
       setTab('top');
       setParams({ q }, { replace: true });
     },
-    [setParams],
+    [pushHistory, setParams],
   );
-
-  const clearHistory = () => {
-    localStorage.removeItem(HISTORY_KEY);
-    setHistory([]);
-  };
 
   /* -------------------- 结果计算 -------------------- */
   const q = submitted.trim();
@@ -225,11 +204,7 @@ export function SearchPage() {
                         aria-label={`删除 ${h}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setHistory((prev) => {
-                            const next = prev.filter((x) => x !== h);
-                            localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-                            return next;
-                          });
+                          removeHistory(h);
                         }}
                       >
                         ×
@@ -340,6 +315,7 @@ export function SearchPage() {
                           avatar_url: u.avatar_url,
                           bio: u.bio,
                           follows_me: u.follows_me,
+                          following: u.relation === 'following',
                         }}
                         showMutual
                         onOpen={() => navigate(`/u/${u.handle}`)}

@@ -20,11 +20,10 @@ interface FollowButtonProps {
  * 关注按钮状态机
  *
  *   未关注 → 实心主色胶囊、白字「关注」
- *   已关注 → 描边胶囊、深字「已关注」；**hover 变红字「取消关注」**（关键细节）
+ *   已关注 → 描边胶囊、深字「取消关注」；hover 转红字加重点出这是取消操作
  *   自己   → 主色描边「编辑资料」
  *
- * 文案切换用 CSS hover 做不到（要换词），所以用 onMouseEnter/Leave 管状态；
- * 同时保留 :focus-visible 走键盘路径，保证可达性。
+ * 文案在常态就写明取消关注，不藏在 hover 里——触屏没有 hover 这一步。
  */
 export function FollowButton({
   relation,
@@ -68,7 +67,7 @@ export function FollowButton({
       .finally(() => setBusy(false));
   };
 
-  const label = following ? (hovering ? '取消关注' : '已关注') : '关注';
+  const label = following ? '取消关注' : '关注';
 
   const cls = [
     styles.follow,
@@ -87,7 +86,7 @@ export function FollowButton({
       type="button"
       className={cls}
       aria-pressed={following}
-      aria-label={following ? '已关注，点击取消关注' : '关注'}
+      aria-label={following ? '取消关注' : '关注'}
       disabled={busy}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}

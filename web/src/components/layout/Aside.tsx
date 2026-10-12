@@ -19,7 +19,7 @@ export function Aside() {
     e.preventDefault();
     const q = query.trim();
     if (!q) return;
-    navigate(`/explore?q=${encodeURIComponent(q)}`);
+    navigate(`/search?q=${encodeURIComponent(q)}`);
   };
 
   const toggleFollow = (userId: string) => {
@@ -66,7 +66,7 @@ export function Aside() {
             key={t.topic}
             type="button"
             className={styles.trend}
-            onClick={() => navigate(`/explore?q=${encodeURIComponent(t.topic)}`)}
+            onClick={() => navigate(`/search?q=${encodeURIComponent(t.topic)}`)}
           >
             <span className={styles.trend__meta}>
               {i === 0 ? <TrendingUp size={13} strokeWidth={2.2} aria-hidden /> : null}
@@ -76,7 +76,7 @@ export function Aside() {
             <span className={styles.trend__count}>{formatCount(t.post_count)} 条动态</span>
           </button>
         ))}
-        <button type="button" className={styles.card__more}>
+        <button type="button" className={styles.card__more} onClick={() => navigate('/topics')}>
           显示更多
         </button>
       </section>
@@ -114,7 +114,7 @@ export function Aside() {
                   toggleFollow(u.user_id);
                 }}
               >
-                {isFollowed ? '已关注' : '关注'}
+                {isFollowed ? '取消关注' : '关注'}
               </button>
             </div>
           );

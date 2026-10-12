@@ -56,7 +56,7 @@ export function FeedEmpty({ tab }: { tab: 'for_you' | 'following' }) {
       <p className={styles.empty__desc}>
         {following
           ? '关注一些感兴趣的人，他们的新动态会出现在这里。'
-          : '换个时间再来看看，或者去发现页逛逛。'}
+          : '换个时间再来看看，或者去热门话题里逛逛。'}
       </p>
       <button type="button" className={`${styles.btn} ${styles['btn--primary']}`}>
         {following ? '发现值得关注的人' : '刷新试试'}

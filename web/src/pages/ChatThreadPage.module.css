@@ -322,7 +322,7 @@
 /* ---------- 窄屏：底栏让位 ---------- */
 @media (max-width: 599px) {
   .page__main {
-    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
     height: auto;
     min-height: 100dvh;
   }

@@ -32,50 +32,45 @@ export function ConversationListPage() {
     };
   }, [list, query]);
 
-  const totalUnread = list.reduce((sum, c) => sum + c.unread, 0);
-
   return (
     <AppShell>
       <div className={styles.page}>
         <div className={styles.page__main}>
-          <header className={styles.head}>
-            <h1 className={styles.head__title}>
-              消息
-              {totalUnread > 0 ? <span className={styles.head__badge}>{totalUnread}</span> : null}
-            </h1>
+          {/* 搜索 + 发起新会话 */}
+          <div className={styles.searchRow}>
+            <div className={styles.searchWrap}>
+              <span className={styles.searchWrap__icon}>
+                <Search size={17} strokeWidth={2} aria-hidden />
+              </span>
+              <input
+                className={styles.searchWrap__input}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="搜索会话"
+                aria-label="搜索会话"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  className={styles.searchWrap__clear}
+                  aria-label="清空搜索"
+                  onClick={() => setQuery('')}
+                >
+                  <X size={16} strokeWidth={2.2} aria-hidden />
+                </button>
+              ) : null}
+            </div>
+
             <button
               type="button"
-              className={styles.head__new}
+              className={styles.newBtn}
               aria-label="发起新会话"
+              title="发起新会话"
               onClick={() => setNewGroupOpen(true)}
             >
               <SquarePen size={19} strokeWidth={2} aria-hidden />
             </button>
-          </header>
-
-          {/* 搜索 */}
-          <div className={styles.searchWrap}>
-            <span className={styles.searchWrap__icon}>
-              <Search size={17} strokeWidth={2} aria-hidden />
-            </span>
-            <input
-              className={styles.searchWrap__input}
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索会话"
-              aria-label="搜索会话"
-            />
-            {query ? (
-              <button
-                type="button"
-                className={styles.searchWrap__clear}
-                aria-label="清空搜索"
-                onClick={() => setQuery('')}
-              >
-                <X size={16} strokeWidth={2.2} aria-hidden />
-              </button>
-            ) : null}
           </div>
 
           {/* 列表 */}
@@ -83,7 +78,7 @@ export function ConversationListPage() {
             <div className={styles.empty}>
               <SquarePen size={26} strokeWidth={1.6} aria-hidden />
               <h2 className={styles.empty__title}>还没有会话</h2>
-              <p className={styles.empty__desc}>点右上角发起一个单聊或群聊。</p>
+              <p className={styles.empty__desc}>点搜索框右侧的按钮发起一个单聊或群聊。</p>
             </div>
           ) : pinned.length === 0 && rest.length === 0 ? (
             <div className={styles.empty}>

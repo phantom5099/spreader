@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Bookmark, CircleUserRound, LogOut, Settings, UserPlus } from 'lucide-react';
+import { LogOut, Settings, UserPlus } from 'lucide-react';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { toast } from '@/stores/toastStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -19,9 +19,7 @@ interface MenuEntry {
 
 const ENTRIES: MenuEntry[] = [
   { key: 'add', label: '添加现有账号', icon: UserPlus },
-  { key: 'profile', label: `查看 @${CURRENT_USER.handle}`, icon: CircleUserRound, to: '/me' },
-  { key: 'bookmarks', label: '收藏', icon: Bookmark, to: '/bookmarks', separatorBefore: true },
-  { key: 'settings', label: '设置与隐私', icon: Settings, to: '/settings' },
+  { key: 'settings', label: '设置与隐私', icon: Settings, to: '/settings', separatorBefore: true },
   { key: 'logout', label: '退出登录', icon: LogOut, danger: true, separatorBefore: true },
 ];
 

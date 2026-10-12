@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Crop, RotateCw, Sun, Contrast, Wand2, Undo2, Check } from 'lucide-react';
 import { Modal, modalStyles } from '@/components/common/Modal';
-import type { DraftMedia } from '@/stores/draftStore';
+import type { DraftMedia } from '@/types/draft';
 import styles from './ImageEditorModal.module.css';
 
 type Tool = 'crop' | 'rotate' | 'brightness' | 'contrast' | 'filter';

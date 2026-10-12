@@ -14,9 +14,13 @@ import type {
   UserProfile,
   UserSummary,
 } from '@/types/user';
-import { ALL_FEED_ITEMS } from './feed';
+import type { Draft, PublishProgress, PublishStage } from '@/types/draft';
+import { ALL_FEED_ITEMS, SUGGESTED_USERS } from './feed';
+import { SHORT_VIDEOS } from './shortVideos';
 import { CURRENT_USER } from './currentUser';
 import { avatarDataUri } from './placeholders';
+import { readDrafts, writeDrafts } from './drafts';
+import { readSearchHistory, writeSearchHistory } from './searchHistory';
 import {
   ALL_PROFILES,
   MY_BLOCKED,
@@ -24,6 +28,7 @@ import {
   MY_FOLLOWING,
   MY_MUTED,
   MY_TOPICS,
+  PEOPLE_POOL,
   accountStateOf,
   findProfileByHandle,
 } from './users';
@@ -59,6 +64,12 @@ function delay(ms: number): Promise<void> {
 interface FetchFeedOptions extends FeedQuery {
   /** 用于验收演示：注入一次失败，验证错误态 */
   simulateError?: boolean;
+}
+
+/** 拉取短视频列表（Demo：一次给全，不做分页） */
+export async function fetchShortVideos(): Promise<FeedItem[]> {
+  await delay(280);
+  return SHORT_VIDEOS;
 }
 
 /**
@@ -344,12 +355,13 @@ export async function fetchUserList(
 
   if (isSelf) return kind === 'following' ? MY_FOLLOWING : MY_FOLLOWERS;
 
-  // 他人主页：确定性轮转切片，保证每次一致
-  const seed = [...handle].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const base = kind === 'following' ? MY_FOLLOWING : MY_FOLLOWERS;
-  const count = Math.min(base.length, 12 + (seed % 14));
-  const start = seed % (base.length - count);
-  return base.slice(start, start + count);
+  // 他人主页：确定性轮转切片，保证每次一致。
+  // 必须用带真实关系的取样池——"TA 关注的人"里既有我已关注的、也有我还没关注的，
+  // 行内按钮才能按各自的关系显示正确状态。
+  const seed = [...handle].reduce((a, c) => a + c.charCodeAt(0), 0) + (kind === 'followers' ? 7 : 0);
+  const count = Math.min(PEOPLE_POOL.length, 12 + (seed % 14));
+  const start = seed % (PEOPLE_POOL.length - count);
+  return PEOPLE_POOL.slice(start, start + count);
 }
 
 interface ListBundle {
@@ -362,6 +374,137 @@ export async function fetchMyLists(tab: ListTab): Promise<ListBundle> {
   await delay(260);
   void tab;
   return { blocked: MY_BLOCKED, muted: MY_MUTED, topics: MY_TOPICS };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  搜索历史                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export async function fetchSearchHistory(): Promise<string[]> {
+  await delay(160);
+  return readSearchHistory();
+}
+
+/** 记录一次搜索，返回去重+截断后的新列表 */
+export async function pushSearchHistory(keyword: string, limit = 10): Promise<string[]> {
+  await delay(120);
+  const next = [keyword, ...readSearchHistory().filter((x) => x !== keyword)].slice(0, limit);
+  writeSearchHistory(next);
+  return next;
+}
+
+/** 删除单条搜索历史，返回剩余列表 */
+export async function removeSearchHistory(keyword: string): Promise<string[]> {
+  await delay(110);
+  const next = readSearchHistory().filter((x) => x !== keyword);
+  writeSearchHistory(next);
+  return next;
+}
+
+export async function clearSearchHistory(): Promise<void> {
+  await delay(120);
+  writeSearchHistory([]);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  草稿                                                                        */
+/* -------------------------------------------------------------------------- */
+
+/** 草稿箱列表 */
+export async function fetchDrafts(): Promise<Draft[]> {
+  await delay(240);
+  return readDrafts();
+}
+
+/** 保存 / 更新一条草稿（updatedAt 由调用方给定，服务端原样落库） */
+export async function saveDraftApi(draft: Draft): Promise<Draft> {
+  await delay(180);
+  const list = readDrafts();
+  const exists = list.some((d) => d.id === draft.id);
+  writeDrafts(exists ? list.map((d) => (d.id === draft.id ? draft : d)) : [draft, ...list]);
+  return draft;
+}
+
+export async function deleteDraftApi(id: string): Promise<void> {
+  await delay(160);
+  writeDrafts(readDrafts().filter((d) => d.id !== id));
+}
+
+export async function clearDraftsApi(): Promise<void> {
+  await delay(140);
+  writeDrafts([]);
+}
+
+/**
+ * 发布：上传 → 转码 → 审核 → 已发布
+ *
+ * Demo 用定时器模拟服务端流程，并通过 onStage 回调推进进度。
+ * 真实接入时这里换成上传接口 + 轮询审核结果，回调形状不变。
+ */
+export async function publishDraftApi(options: {
+  onStage?: (progress: PublishProgress) => void;
+  simulateFail?: boolean;
+} = {}): Promise<PublishStage> {
+  const { onStage, simulateFail = false } = options;
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const emit = (progress: PublishProgress) => onStage?.(progress);
+
+  emit({ stage: 'uploading', percent: 0 });
+  for (const percent of [12, 34, 58, 79, 94, 100]) {
+    await wait(220);
+    emit({ stage: 'uploading', percent });
+  }
+
+  emit({ stage: 'transcoding', percent: 100 });
+  await wait(1400);
+
+  if (simulateFail) {
+    emit({ stage: 'failed', percent: 100 });
+    return 'failed';
+  }
+
+  emit({ stage: 'reviewing', percent: 100 });
+  await wait(1600);
+
+  // Demo：10% 触发"未通过审核"，便于演示申诉入口
+  if (Math.random() < 0.1) {
+    emit({ stage: 'rejected', percent: 100, reason: '疑似违规内容' });
+    return 'rejected';
+  }
+
+  emit({ stage: 'published', percent: 100 });
+  return 'published';
+}
+
+/* -------------------------------------------------------------------------- */
+/*  推荐关注                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** 注册流程的「推荐关注」——与右栏推荐同源，避免两处出现两套人 */
+export async function fetchSuggestedUsers(limit = 6): Promise<UserSummary[]> {
+  await delay(240);
+
+  const fromAuthors: UserSummary[] = SUGGESTED_USERS.map((u) => ({
+    user_id: u.user_id,
+    nickname: u.nickname,
+    handle: u.handle,
+    avatar_url: u.avatar_url,
+    bio: findProfileByHandle(u.handle)?.bio ?? '',
+    following: false,
+  }));
+
+  /* 候选 = 右栏推荐 + 用户池，按 handle 去重 */
+  const merged: UserSummary[] = [];
+  const seen = new Set<string>();
+  for (const u of [...fromAuthors, ...PEOPLE_POOL]) {
+    if (seen.has(u.handle)) continue;
+    seen.add(u.handle);
+    merged.push({ ...u, following: false });
+  }
+
+  /* 优先挑有简介的，避免注册页的推荐位出现空一行 */
+  const picked = [...merged.filter((u) => u.bio), ...merged.filter((u) => !u.bio)];
+  return picked.slice(0, limit);
 }
 
 export type { AccountState, ListTab, ProfileTab, TopicSubscription, UserProfile, UserSummary };

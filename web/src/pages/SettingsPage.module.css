@@ -63,13 +63,6 @@
   color: var(--text-secondary);
 }
 
-.account__cta {
-  flex: 0 0 auto;
-  font-size: var(--font-sm);
-  font-weight: 600;
-  color: var(--accent);
-}
-
 .tail {
   height: 24px;
 }

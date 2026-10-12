@@ -14,3 +14,9 @@ export const CURRENT_USER: Author & { bio: string; following: number; followers:
   following: 128,
   followers: 12480,
 };
+
+export const CURRENT_USER_CONTACTS = {
+  phone: '138****6621',
+  email: 'zhixia@example.com',
+  backupEmail: 'zhixia.backup@example.com',
+};

@@ -7,7 +7,6 @@ import {
   Heart,
   MessageCircle,
   Repeat2,
-  Settings2,
   UserPlus,
   Quote,
 } from 'lucide-react';
@@ -115,15 +114,6 @@ export function NotificationPage() {
                 }}
               >
                 <CheckCheck size={19} strokeWidth={2} aria-hidden />
-              </button>
-              <button
-                type="button"
-                className={styles.head__icon}
-                aria-label="通知设置"
-                title="通知设置"
-                onClick={() => navigate('/settings')}
-              >
-                <Settings2 size={19} strokeWidth={2} aria-hidden />
               </button>
             </div>
           </header>

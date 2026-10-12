@@ -4,7 +4,7 @@
  * 真实接入时替换本文件：用 <input type="file"> + 上传接口。
  */
 import { mediaPlaceholder } from './placeholders';
-import type { DraftMedia } from '@/stores/draftStore';
+import type { DraftMedia } from '@/types/draft';
 
 const IMAGE_NAMES = ['IMG_2043.HEIC', 'IMG_2044.HEIC', 'screenshot.png', 'photo.webp', 'cover.jpg'];
 const VIDEO_NAMES = ['VID_0091.mp4', 'clip.mov', 'timelapse.mp4'];

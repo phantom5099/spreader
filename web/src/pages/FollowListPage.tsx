@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { UserRow } from '@/components/profile/UserRow';
 import { UserRowSkeleton } from '@/components/profile/UserRowSkeleton';
 import { ProfileEmpty } from '@/components/profile/ProfileStates';
 import { fetchUserList } from '@/mocks/api';
 import { CURRENT_USER } from '@/mocks/currentUser';
 import { findProfileByHandle } from '@/mocks/users';
+import { useConversationStore } from '@/stores/conversationStore';
 import type { UserSummary } from '@/types/user';
 import styles from './FollowListPage.module.css';
 
@@ -26,6 +26,7 @@ const TITLE: Record<Kind, string> = { following: '关注', followers: '粉丝' }
 function FollowListPage({ kind }: FollowListPageProps) {
   const { handle = '' } = useParams();
   const navigate = useNavigate();
+  const startDirect = useConversationStore((s) => s.startDirect);
 
   const [list, setList] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +34,6 @@ function FollowListPage({ kind }: FollowListPageProps) {
 
   const profile = findProfileByHandle(handle);
   const isSelf = !profile || profile.user_id === CURRENT_USER.user_id;
-  const displayName = profile?.nickname ?? (isSelf ? CURRENT_USER.nickname : handle);
 
   useEffect(() => {
     let alive = true;
@@ -51,6 +51,14 @@ function FollowListPage({ kind }: FollowListPageProps) {
     };
   }, [kind, handle]);
 
+  /**
+   * 行右侧的聊天按钮
+   */
+  const openChat = (user: UserSummary) => {
+    const id = startDirect(user);
+    navigate(`/messages/${id}`);
+  };
+
   const filtered = query.trim()
     ? list.filter((u) => {
         const q = query.trim().toLowerCase();
@@ -62,12 +70,6 @@ function FollowListPage({ kind }: FollowListPageProps) {
     <AppShell>
       <div className={styles.page}>
         <div className={styles.page__main}>
-          <PageHeader
-            title={displayName}
-            subtitle={`${list.length} 位${TITLE[kind]}`}
-            onBack={() => navigate(`/u/${handle}`)}
-          />
-
           {/* 双 Tab */}
           <div className={styles.tabs} role="tablist" aria-label="关注与粉丝">
             <button
@@ -129,7 +131,7 @@ function FollowListPage({ kind }: FollowListPageProps) {
                 query
                   ? { text: '清空搜索', onClick: () => setQuery('') }
                   : isSelf && kind === 'following'
-                    ? { text: '去发现更多人', onClick: () => navigate('/explore') }
+                    ? { text: '去搜索更多人', onClick: () => navigate('/search') }
                     : undefined
               }
             />
@@ -141,6 +143,7 @@ function FollowListPage({ kind }: FollowListPageProps) {
                   user={u}
                   showMutual
                   onOpen={() => navigate(`/u/${u.handle}`)}
+                  onMessage={() => openChat(u)}
                 />
               ))}
             </div>

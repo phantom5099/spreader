@@ -6,7 +6,6 @@ import {
   Monitor,
   ShieldCheck,
   Link2,
-  ListChecks,
   Ban,
   BellOff,
   FileText,
@@ -44,7 +43,7 @@ export function SettingsPage() {
         <div className={styles.page__main}>
           <PageHeader title="设置" />
 
-          {/* 账号卡 */}
+          {/* 账号卡：整块可点，直接进个人主页 */}
           <button type="button" className={styles.account} onClick={() => navigate('/me')}>
             <span className={styles.account__avatar}>
               <img src={CURRENT_USER.avatar_url} alt="" />
@@ -53,7 +52,6 @@ export function SettingsPage() {
               <span className={styles.account__name}>{CURRENT_USER.nickname}</span>
               <span className={styles.account__handle}>@{CURRENT_USER.handle}</span>
             </span>
-            <span className={styles.account__cta}>查看主页</span>
           </button>
 
           <SettingsGroup>
@@ -91,12 +89,6 @@ export function SettingsPage() {
           </SettingsGroup>
 
           <SettingsGroup title="内容管理">
-            <SettingsRow
-              icon={<ListChecks size={19} strokeWidth={1.9} />}
-              label="关注与粉丝"
-              desc={`${MY_BLOCKED.length === 0 ? '' : ''}管理你关注的人`}
-              to={`/u/${CURRENT_USER.handle}/following`}
-            />
             <SettingsRow
               icon={<Ban size={19} strokeWidth={1.9} />}
               label="黑名单"

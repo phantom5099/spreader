@@ -104,10 +104,19 @@
   text-align: center;
 }
 
+/* ---------- 底部簇：发帖按钮 + 账号菜单 ---------- */
+.rail__foot {
+  margin-top: auto;
+  padding-top: 16px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ---------- 发帖按钮（通栏药丸，内容只有一个 + 号）----------
    形状：宽度撑满导航栏（不设 width，靠 align-items 拉伸）。 */
 .rail__compose {
-  margin: 16px 0 0;
+  margin: 0;
   height: 52px;
   border-radius: var(--radius-pill);
   background: var(--accent);
@@ -125,8 +134,6 @@
 .rail__compose:active {
   transform: scale(0.98);
 }
-
-/* ---------- 底部账号：由独立的 AccountMenu 组件渲染（自带样式与折叠规则）---------- */
 
 /* ==========================================================================
    图标档：<1190 时左导航收成 88px 图标条
@@ -159,6 +166,9 @@
   .rail__compose {
     width: 50px;
     height: 50px;
-    margin-top: 12px;
+  }
+  .rail__foot {
+    padding-top: 12px;
+    align-items: center;
   }
 }

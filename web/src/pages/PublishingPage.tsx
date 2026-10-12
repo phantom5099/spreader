@@ -10,7 +10,8 @@ import {
   ArrowLeft,
   Eye,
 } from 'lucide-react';
-import { useDraftStore, type Draft, type PublishStage } from '@/stores/draftStore';
+import { useDraftStore } from '@/stores/draftStore';
+import type { Draft, PublishStage } from '@/types/draft';
 import { toast } from '@/stores/toastStore';
 import styles from './PublishingPage.module.css';
 
@@ -46,7 +47,7 @@ export function PublishingPage() {
 
   /* -------------------- 启动状态机 -------------------- */
   useEffect(() => {
-    refresh();
+    void refresh();
     setDraft(useDraftStore.getState().get(draftId));
   }, [refresh, draftId]);
 

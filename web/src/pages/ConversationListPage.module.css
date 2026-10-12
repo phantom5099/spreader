@@ -15,68 +15,42 @@
   min-width: 0;
 }
 
-/* ---------- 头部 ---------- */
-.head {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  height: var(--header-h);
-  padding: 0 12px 0 var(--card-pad-x);
-  background: var(--bg-frost);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-}
-
-.head__title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--font-lg);
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-
-.head__badge {
-  padding: 1px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: #fff;
-  font-size: var(--font-xs);
-  font-weight: 700;
-  line-height: 1.5;
-}
-
-.head__new {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-pill);
-  color: var(--text-primary);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-
-.head__new:hover {
-  background: var(--bg-hover);
-}
-
-/* ---------- 搜索 ---------- */
-.searchWrap {
+/* ---------- 搜索 + 发起新会话 ---------- */
+.searchRow {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 12px var(--card-pad-x);
+}
+
+.searchWrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 0 12px;
   height: 40px;
   border-radius: var(--radius-pill);
   background: var(--bg-elevated);
   border: 1px solid transparent;
   transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.newBtn {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.newBtn:hover {
+  background: var(--bg-active);
 }
 
 .searchWrap:focus-within {

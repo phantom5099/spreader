@@ -4,8 +4,8 @@
 
 .tabs {
   position: sticky;
-  top: var(--header-h);
-  z-index: calc(var(--z-sticky) - 1);
+  top: 0;
+  z-index: var(--z-sticky);
   display: flex;
   align-items: stretch;
   background: var(--bg-frost);

@@ -71,7 +71,7 @@ export function ListManagerPage() {
             icon={Hash}
             title="还没有关注任何话题"
             desc="在动态里点击话题标签即可关注，相关的新内容会出现在推荐流。"
-            action={{ text: '去发现话题', onClick: () => navigate('/explore') }}
+            action={{ text: '去搜索话题', onClick: () => navigate('/search') }}
           />
         );
       }

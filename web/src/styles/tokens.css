@@ -57,6 +57,7 @@
   --avatar-col: 52px;
 
   --header-h: 53px;
+  --tabbar-h: 57px;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -215,7 +216,6 @@ video {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
 }
 
 /* ---------- 全局滚动条（细、低调）---------- */

@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Keyboard, Sparkles } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Aside } from '@/components/layout/Aside';
 import { FeedTabs } from '@/components/feed/FeedTabs';
-import { ComposerEntry } from '@/components/feed/ComposerEntry';
 import { NewContentBanner } from '@/components/feed/NewContentBanner';
 import { PostCard } from '@/components/post/PostCard';
 import { PostCardSkeleton } from '@/components/post/PostCardSkeleton';
@@ -26,6 +25,7 @@ const NEW_CONTENT_AFTER_MS = 60_000;
 
 export function FeedPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   /* 逐字段订阅：zustand 的 action 引用是稳定的，
      而整店订阅（useFeedStore()）会让任何字段变化都触发本页重渲染。 */
@@ -127,13 +127,18 @@ export function FeedPage() {
   /* -------------------- 键盘快捷键：N 发帖 / R 刷新 -------------------- */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      /* 浮层式发布页盖在上面时本页仍挂在下面。react-router 在渲染背景路由时
+         useLocation() 返回的仍是首页，所以要靠浏览器真实 URL 判断"我是不是最上层"，
+         不是就不响应全局快捷键。 */
+      if (window.location.pathname !== '/') return;
+
       const target = e.target as HTMLElement | null;
       if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
-        navigate('/compose');
+        navigate('/compose', { state: { background: location } });
       }
       if (e.key === 'r' || e.key === 'R') {
         e.preventDefault();
@@ -142,18 +147,20 @@ export function FeedPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate, retry]);
+  }, [navigate, retry, location]);
 
   /* -------------------- 手势：双指下拉刷新（触屏）-------------------- */
   useEffect(() => {
     let startY = 0;
     let pulling = false;
     const onTouchStart = (e: TouchEvent) => {
+      if (window.location.pathname !== '/') return;
       if (window.scrollY > 0) return;
       startY = e.touches[0]?.clientY ?? 0;
       pulling = true;
     };
     const onTouchEnd = (e: TouchEvent) => {
+      if (window.location.pathname !== '/') return;
       if (!pulling) return;
       pulling = false;
       const endY = e.changedTouches[0]?.clientY ?? 0;
@@ -189,8 +196,6 @@ export function FeedPage() {
           <FeedTabs value={tab} onChange={handleTab} />
 
           <div className={styles.page__content}>
-            <ComposerEntry />
-
             {showNote ? (
               <div className={styles.devNote}>
                 <span className={styles.devNote__badge}>DEMO</span>

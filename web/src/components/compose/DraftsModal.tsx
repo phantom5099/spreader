@@ -1,6 +1,7 @@
 import { FileText, Trash2, Image as ImageIcon, Film } from 'lucide-react';
 import { Modal } from '@/components/common/Modal';
-import { draftPreview, type Draft } from '@/stores/draftStore';
+import { draftPreview } from '@/utils/draft';
+import type { Draft } from '@/types/draft';
 import { formatRelativeTime } from '@/utils/format';
 import styles from './DraftsModal.module.css';
 

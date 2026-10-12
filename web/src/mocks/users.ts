@@ -189,16 +189,29 @@ function toSummary(p: UserProfile, followsMe: boolean): UserSummary {
     avatar_url: p.avatar_url,
     bio: p.bio,
     follows_me: followsMe,
+    following: p.relation === 'following',
     blocked: false,
   };
 }
 
 const OTHERS = ALL_PROFILES.filter((p) => p.relation !== 'self');
 
-/** 我关注的人（Demo 取 28 位，含对方是否回关） */
-export const MY_FOLLOWING: UserSummary[] = OTHERS.slice(0, 28).map((p) =>
-  toSummary(p, p.follows_me),
+/**
+ * 我关注的人
+ *
+ * 只取 relation 为 following 的资料——列表里的每一行都确实是我已关注的人，
+ * 否则同一条数据既当"我关注的人"又当"我没关注的人"，行内按钮就无从判断该显示哪种状态。
+ */
+export const MY_FOLLOWING: UserSummary[] = OTHERS.filter((p) => p.relation === 'following').map(
+  (p) => toSummary(p, p.follows_me),
 );
+
+/**
+ * 他人主页的关注 / 粉丝名单取样池
+ *
+ * 保留资料本来的关注关系，行内按钮因此会自然出现"已关注 / 未关注"两种状态。
+ */
+export const PEOPLE_POOL: UserSummary[] = OTHERS.map((p) => toSummary(p, p.follows_me));
 
 /** 我的粉丝（Demo 取 34 位，其中一半我已回关） */
 export const MY_FOLLOWERS: UserSummary[] = [

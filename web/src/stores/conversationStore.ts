@@ -16,8 +16,16 @@ interface ConversationState {
   /** 更新最后一条消息预览（发送 / 接收后调用） */
   touch: (conversationId: string, preview: string) => void;
   updateSettings: (conversationId: string, patch: Partial<ConversationSettings>) => void;
+  startDirect: (peer: DirectPeer) => string;
   createGroup: (title: string, memberIds: string[]) => string;
   leave: (conversationId: string) => void;
+}
+
+/** 开启单聊所需的最小用户信息 */
+interface DirectPeer {
+  nickname: string;
+  handle: string;
+  avatar_url: string;
 }
 
 export const useConversationStore = create<ConversationState>((set, get) => ({
@@ -37,6 +45,33 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         ),
       };
     }),
+
+  startDirect: (peer) => {
+    const existing = get().list.find(
+      (c) => c.kind === 'direct' && c.peer_handle === peer.handle,
+    );
+    if (existing) return existing.conversation_id;
+
+    const id = `c_dm_new_${Date.now()}`;
+    const conv: Conversation = {
+      conversation_id: id,
+      kind: 'direct',
+      title: peer.nickname,
+      avatar_url: peer.avatar_url,
+      online: false,
+      last_message: '还没有消息，打个招呼吧',
+      last_at: new Date().toISOString(),
+      unread: 0,
+      pinned: false,
+      muted: false,
+      peer_handle: peer.handle,
+    };
+    set({
+      list: [conv, ...get().list],
+      settings: { ...get().settings, [id]: defaultSettings(conv) },
+    });
+    return id;
+  },
 
   touch: (conversationId, preview) =>
     set({

@@ -262,7 +262,7 @@ export function PostDetailPage() {
                     .join(' ')}
                   onClick={() => setFollowing((v) => !v)}
                 >
-                  {following ? '已关注' : '关注'}
+                  {following ? '取消关注' : '关注'}
                 </button>
               </div>
               <span className={styles.parent__handle}>@{item.author.handle}</span>

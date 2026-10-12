@@ -50,16 +50,3 @@
   border-radius: var(--radius-pill);
   background: var(--accent);
 }
-
-/* 右侧齿轮：进入"信息流偏好"抽屉（Demo 占位） */
-.ftabs__settings {
-  flex: 0 0 52px;
-  display: grid;
-  place-items: center;
-  color: var(--text-primary);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-
-.ftabs__settings:hover {
-  background: var(--bg-hover);
-}

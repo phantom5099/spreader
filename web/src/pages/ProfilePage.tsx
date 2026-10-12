@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   CalendarDays,
   Link2,
@@ -41,6 +41,7 @@ const JoinedText = ({ iso }: { iso: string }) => {
 export function ProfilePage() {
   const { handle = '' } = useParams();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
   const signOut = useAuthStore((s) => s.signOut);
 
   const [bundle, setBundle] = useState<ProfileBundle | null>(null);
@@ -181,7 +182,6 @@ export function ProfilePage() {
       <AppShell aside={<Aside />}>
         <div className={styles.page}>
           <div className={styles.page__main}>
-            <PageHeader title="主页" showBack={false} />
             <div className={styles.skeletonCover} />
             <PostCardSkeleton count={4} withMedia={false} />
           </div>
@@ -262,34 +262,18 @@ export function ProfilePage() {
     <AppShell aside={<Aside />}>
       <div className={styles.page} ref={topRef}>
         <div className={styles.page__main}>
-          <PageHeader
-            title={profile.nickname}
-            subtitle={`${formatCount(tabCounts.posts)} 条动态`}
-            actions={
-              <>
-                <button
-                  type="button"
-                  className={headerStyles.iconBtn}
-                  aria-label="分享主页"
-                  onClick={shareProfile}
-                >
-                  <Share size={19} strokeWidth={2} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className={headerStyles.iconBtn}
-                  aria-label="更多操作"
-                  onClick={() => setMoreOpen(true)}
-                >
-                  <MoreHorizontal size={20} strokeWidth={2} aria-hidden />
-                </button>
-              </>
-            }
-          />
-
           {/* ---------- 封面 ---------- */}
           <div className={styles.cover}>
             <img className={styles.cover__img} src={profile.cover_url} alt="" aria-hidden />
+            <button
+              type="button"
+              className={styles.cover__share}
+              aria-label="分享主页"
+              title="分享主页"
+              onClick={shareProfile}
+            >
+              <Share size={19} strokeWidth={2} aria-hidden />
+            </button>
           </div>
 
           {/* ---------- 资料区 ---------- */}
@@ -307,16 +291,14 @@ export function ProfilePage() {
               </button>
 
               <div className={styles.head__action}>
-                {!isSelf ? (
-                  <button
-                    type="button"
-                    className={headerStyles.iconBtn}
-                    aria-label="更多用户操作"
-                    onClick={() => setMoreOpen(true)}
-                  >
-                    <MoreHorizontal size={20} strokeWidth={2} aria-hidden />
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className={headerStyles.iconBtn}
+                  aria-label="更多操作"
+                  onClick={() => setMoreOpen(true)}
+                >
+                  <MoreHorizontal size={20} strokeWidth={2} aria-hidden />
+                </button>
 
                 <FollowButton
                   relation={profile.relation}
@@ -400,7 +382,13 @@ export function ProfilePage() {
                 kind={tab}
                 action={
                   isSelf && tab === 'posts'
-                    ? { text: '发一条动态', onClick: () => navigate('/compose') }
+                    ? {
+                        text: '发一条动态',
+                        onClick: () =>
+                          navigate('/compose', {
+                            state: { background: routerLocation },
+                          }),
+                      }
                     : undefined
                 }
               />

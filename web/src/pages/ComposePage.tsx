@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   X,
   Image as ImageIcon,
@@ -17,9 +17,11 @@ import {
   FileText,
   ChevronRight,
   Plus,
+  Save,
 } from 'lucide-react';
 import { CURRENT_USER } from '@/mocks/currentUser';
-import { useDraftStore, type Draft, type DraftMedia } from '@/stores/draftStore';
+import { useDraftStore } from '@/stores/draftStore';
+import type { Draft, DraftMedia } from '@/types/draft';
 import { formatBytes, pickImage, pickVideo } from '@/mocks/media';
 import { toast } from '@/stores/toastStore';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -38,6 +40,7 @@ const MAX_VIDEO_SEC = 60;
 
 export function ComposePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { draftId } = useParams();
   const [params] = useSearchParams();
   /* 注意：useSearchParams 每次渲染都返回新对象，不能直接进 effect 依赖，
@@ -52,7 +55,11 @@ export function ComposePage() {
   const drafts = useDraftStore((s) => s.drafts);
 
   const [draft, setDraft] = useState<Draft>(() => create());
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  /* 从浮层进入（带了背景路由）时，关闭应回到来处，而不是跳首页 */
+  const hasBackground = Boolean(
+    (location.state as { background?: unknown } | null)?.background,
+  );
 
   /* 浮层开关 */
   const [showVisibility, setShowVisibility] = useState(false);
@@ -66,7 +73,7 @@ export function ComposePage() {
 
   /* -------------------- 载入草稿（/compose/:draftId 或 ?quote=）-------------------- */
   useEffect(() => {
-    refresh();
+    void refresh();
   }, [refresh]);
 
   useEffect(() => {
@@ -98,36 +105,52 @@ export function ComposePage() {
 
   useEffect(() => {
     if (!isDirty) return;
-    const t = window.setTimeout(() => {
-      upsert(draft);
-      setSavedAt(Date.now());
-    }, 900);
+    const t = window.setTimeout(() => upsert(draft), 900);
     return () => window.clearTimeout(t);
   }, [draft, isDirty, upsert]);
 
-  /* -------------------- 关闭拦截 -------------------- */
-  const attemptClose = useCallback(() => {
-    if (isDirty) {
-      setConfirmExit(true);
-    } else {
-      setEditing(null);
-      navigate(-1);
+  /* 打开期间锁住背景页面的滚动，避免纱幕下层跟着一起滚 */
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  /* -------------------- 手动暂存 -------------------- */
+  const saveDraft = () => {
+    if (!isDirty) {
+      toast.show('还没有可保存的内容');
+      return;
     }
-  }, [isDirty, navigate, setEditing]);
+    upsert(draft);
+    toast.success('已保存到草稿箱');
+  };
+
+  /* -------------------- 关闭拦截 -------------------- */
+  const dismiss = useCallback(() => {
+    setEditing(null);
+    if (hasBackground) navigate(-1);
+    else navigate('/');
+  }, [hasBackground, navigate, setEditing]);
+
+  const attemptClose = useCallback(() => {
+    if (isDirty) setConfirmExit(true);
+    else dismiss();
+  }, [isDirty, dismiss]);
 
   const leaveWithoutSaving = () => {
     if (draft.id) remove(draft.id);
     setConfirmExit(false);
-    setEditing(null);
-    navigate('/');
+    dismiss();
   };
 
   const saveAndLeave = () => {
     upsert(draft);
     toast.success('已保存到草稿箱');
     setConfirmExit(false);
-    setEditing(null);
-    navigate('/');
+    dismiss();
   };
 
   /* -------------------- 媒体操作 -------------------- */
@@ -255,9 +278,12 @@ export function ComposePage() {
             <X size={20} strokeWidth={2} aria-hidden />
           </button>
 
-          <span className={styles.topbar__title}>
-            草稿{savedAt ? ' · 已自动保存' : ''}
-          </span>
+          <span className={styles.topbar__title}>动态发布</span>
+
+          <button type="button" className={styles.topbar__save} onClick={saveDraft}>
+            <Save size={15} strokeWidth={2} aria-hidden />
+            存草稿
+          </button>
 
           <button
             type="button"
@@ -286,15 +312,6 @@ export function ComposePage() {
             </span>
 
             <div className={styles.row__main}>
-              <button
-                type="button"
-                className={styles.visibilityPill}
-                onClick={() => setShowVisibility(true)}
-              >
-                <VisIcon size={14} strokeWidth={2} aria-hidden />
-                {visLabel}
-              </button>
-
               <textarea
                 ref={taRef}
                 className={styles.textarea}
@@ -633,7 +650,9 @@ export function ComposePage() {
         drafts={drafts}
         currentId={draft.id}
         onOpen={(d) => {
-          upsert(draft);
+          /* 只在当前草稿确有内容（或它已经在草稿箱里）时才回写，
+             否则"打开草稿箱挑一条"会顺带存下一条空白草稿。 */
+          if (isDirty || drafts.some((x) => x.id === draft.id)) upsert(draft);
           setDraft(d);
           setShowDrafts(false);
         }}

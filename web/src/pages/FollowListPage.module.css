@@ -93,6 +93,10 @@
   color: var(--text-tertiary);
 }
 
+.searchWrap__input:focus-visible {
+  outline: none;
+}
+
 .searchWrap__clear {
   flex: 0 0 auto;
   display: grid;

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { FeedPage } from '@/pages/FeedPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { RouteFallback } from '@/components/common/RouteFallback';
@@ -47,8 +47,14 @@ const NotificationPage = lazy(() =>
 const SearchPage = lazy(() =>
   import('@/pages/SearchPage').then((m) => ({ default: m.SearchPage })),
 );
+const VideosPage = lazy(() =>
+  import('@/pages/VideosPage').then((m) => ({ default: m.VideosPage })),
+);
 const TopicPage = lazy(() =>
   import('@/pages/TopicPage').then((m) => ({ default: m.TopicPage })),
+);
+const TopicsPage = lazy(() =>
+  import('@/pages/TopicsPage').then((m) => ({ default: m.TopicsPage })),
 );
 const SettingsPage = lazy(() =>
   import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
@@ -96,19 +102,17 @@ const SignupProfilePage = lazy(() =>
   import('@/pages/SignupProfilePage').then((m) => ({ default: m.SignupProfilePage })),
 );
 
-/**
- * 路由表
- * 所有页面均为真实实现，无占位页。
- *
- * 发布页 / 发布状态页刻意不套 AppShell —— 它们是沉浸式流程，
- * 用全屏呈现（宽屏为居中浮层），避免导航干扰。
- */
 export default function App() {
+  const location = useLocation();
+  const background = (
+    location.state as { background?: ReturnType<typeof useLocation> } | null
+  )?.background;
+
   return (
     <ErrorBoundary>
       <Suspense fallback={<RouteFallback />}>
         <RequireAuth>
-        <Routes>
+        <Routes location={background ?? location}>
           {/* 首屏：信息流（静态引入，不做懒加载） */}
           <Route path="/" element={<FeedPage />} />
           <Route path="/home" element={<Navigate to="/" replace />} />
@@ -116,9 +120,9 @@ export default function App() {
           {/* 详情 */}
           <Route path="/post/:contentId" element={<PostDetailPage />} />
 
-          {/* 发布流程 */}
-          <Route path="/compose" element={<ComposePage />} />
-          <Route path="/compose/:draftId" element={<ComposePage />} />
+          {/* 发布流程（无背景时作为独立页兜底） */}
+          {!background ? <Route path="/compose" element={<ComposePage />} /> : null}
+          {!background ? <Route path="/compose/:draftId" element={<ComposePage />} /> : null}
           <Route path="/compose/quote/:contentId" element={<QuoteComposePage />} />
           <Route path="/quote/:contentId" element={<QuoteComposePage />} />
           <Route path="/publishing/:draftId" element={<PublishingPage />} />
@@ -128,7 +132,6 @@ export default function App() {
           <Route path="/u/:handle" element={<ProfilePage />} />
           <Route path="/u/:handle/following" element={<FollowingListPage />} />
           <Route path="/u/:handle/followers" element={<FollowersListPage />} />
-          <Route path="/people" element={<FollowListPageRedirect />} />
           <Route path="/settings/lists" element={<ListManagerPage />} />
           <Route path="/settings/lists/:tab" element={<ListManagerPage />} />
 
@@ -137,9 +140,12 @@ export default function App() {
           <Route path="/messages/:conversationId" element={<ChatThreadPage />} />
           <Route path="/notifications" element={<NotificationPage />} />
 
+          {/* 短视频 */}
+          <Route path="/videos" element={<VideosPage />} />
+
           {/* 搜索 / 话题 / 收藏 */}
-          <Route path="/explore" element={<SearchPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/topics" element={<TopicsPage />} />
           <Route path="/topic/:topic" element={<TopicPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
 
@@ -164,15 +170,18 @@ export default function App() {
 
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+
+        {/* 浮层式发布页：叠在背景路由之上渲染 */}
+        {background ? (
+          <Routes>
+            <Route path="/compose" element={<ComposePage />} />
+            <Route path="/compose/:draftId" element={<ComposePage />} />
+          </Routes>
+        ) : null}
         </RequireAuth>
       </Suspense>
 
       <Toaster />
     </ErrorBoundary>
   );
-}
-
-/** 「联系人」入口落到自己的关注列表，避免占位页 */
-function FollowListPageRedirect() {
-  return <Navigate to={`/u/${CURRENT_USER.handle}/following`} replace />;
 }

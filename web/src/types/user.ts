@@ -36,6 +36,8 @@ export interface UserSummary {
   bio: string;
   /** 供列表页展示的补充信息 */
   follows_me?: boolean;
+  /** 我是否已关注 TA —— 行内关注按钮的初始状态由它决定 */
+  following?: boolean;
   /** 该用户是否被我拉黑 */
   blocked?: boolean;
 }

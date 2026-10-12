@@ -19,9 +19,11 @@
 /* 右栏由 AppShell 的 .shell__aside 承载（见 AppShell.module.css） */
 
 /* ---------- 封面 ---------- */
+/* 顶部留出一条缝隙：封面不贴着视口最上沿（此处已无吸顶栏，贴边会显得被裁掉） */
 .cover {
   position: relative;
   width: 100%;
+  margin-top: 12px;
   aspect-ratio: 3 / 1;
   background: var(--bg-elevated);
   overflow: hidden;
@@ -34,8 +36,30 @@
   display: block;
 }
 
+/* 分享按钮：浮在封面右上角的圆形按钮，压半透明底以适配任意封面图 */
+.cover__share {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.cover__share:hover {
+  background: rgba(0, 0, 0, 0.78);
+}
+
 .skeletonCover {
   width: 100%;
+  margin-top: 12px;
   aspect-ratio: 3 / 1;
   background: var(--skeleton);
 }
