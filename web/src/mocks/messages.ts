@@ -228,6 +228,37 @@ export function messagesOf(conversationId: string): Message[] {
   return MESSAGE_CACHE.get(conversationId)!;
 }
 
+/* ---------- 可变操作（只给数据访问层 api.ts 用）----------
+   缓存即"服务端库表"，返回的一律是副本，调用方拿不到内部引用。 */
+
+/** 读取会话消息（副本） */
+export function readMessages(conversationId: string): Message[] {
+  return messagesOf(conversationId).map((m) => ({ ...m }));
+}
+
+/** 落库一条新消息（message_id 由客户端生成，后端原样接受） */
+export function appendMessage(message: Message): Message {
+  const list = messagesOf(message.conversation_id);
+  list.push(message);
+  return { ...message };
+}
+
+/** 撤回：清空正文与媒体，只留 recalled 占位；找不到返回 null */
+export function markRecalled(conversationId: string, messageId: string): Message | null {
+  const list = messagesOf(conversationId);
+  const index = list.findIndex((m) => m.message_id === messageId);
+  if (index === -1) return null;
+  const next: Message = {
+    ...list[index]!,
+    recalled: true,
+    text: '',
+    media_url: undefined,
+    content_id: undefined,
+  };
+  list[index] = next;
+  return { ...next };
+}
+
 /* -------------------------------------------------------------------------- */
 /*  群成员                                                                      */
 /* -------------------------------------------------------------------------- */

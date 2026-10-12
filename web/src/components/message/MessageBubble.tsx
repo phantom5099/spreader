@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Check, CheckCheck, Clock } from 'lucide-react';
 import type { Message } from '@/types/message';
@@ -13,14 +13,15 @@ interface MessageBubbleProps {
   showSender?: boolean;
   senderName?: string;
   senderAvatar?: string;
-  onRecall?: (message: Message) => void;
+  /** 右键（触屏为长按）自己的消息时，请上层弹出操作菜单 */
+  onRequestMenu?: (message: Message, point: { x: number; y: number }) => void;
 }
 
 /**
  * 消息气泡
  * 自己发的靠右（主色背景白字），对方靠左（浅灰背景深字）。
  * 消息状态：发送中 〇 / 已发送 ✓ / 已送达 ✓✓ / 已读 ✓✓（蓝）
- * 撤回后 → 灰色斜体"你撤回了一条消息"
+ * 撤回：右键自己的气泡 → 操作菜单 → 撤回；撤回后为灰色斜体占位
  */
 export const MessageBubble = memo(function MessageBubble({
   message,
@@ -28,9 +29,51 @@ export const MessageBubble = memo(function MessageBubble({
   showSender = false,
   senderName,
   senderAvatar,
-  onRecall,
+  onRequestMenu,
 }: MessageBubbleProps) {
   const navigate = useNavigate();
+
+  /* 触屏长按 = 右键（移动端没有右键） */
+  const pressTimer = useRef<number | null>(null);
+  const pressOrigin = useRef<{ x: number; y: number } | null>(null);
+
+  const clearPress = () => {
+    if (pressTimer.current !== null) window.clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+    pressOrigin.current = null;
+  };
+
+  /* 只有自己的、未撤回的消息才有操作菜单 */
+  const canManage = mine && !!onRequestMenu;
+
+  /* 卸载时清掉未触发的长按计时器 */
+  useEffect(() => clearPress, []);
+
+  const onContextMenu = (e: React.MouseEvent) => {
+    if (!canManage) return;
+    e.preventDefault();
+    onRequestMenu?.(message, { x: e.clientX, y: e.clientY });
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (!canManage) return;
+    const t = e.touches[0];
+    if (!t) return;
+    pressOrigin.current = { x: t.clientX, y: t.clientY };
+    pressTimer.current = window.setTimeout(() => {
+      const origin = pressOrigin.current;
+      pressTimer.current = null;
+      if (origin) onRequestMenu?.(message, origin);
+    }, 520);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    const origin = pressOrigin.current;
+    if (!t || !origin) return;
+    /* 手指移动说明在滚动列表，取消长按 */
+    if (Math.abs(t.clientX - origin.x) > 10 || Math.abs(t.clientY - origin.y) > 10) clearPress();
+  };
 
   /* ---------- 撤回态 ---------- */
   if (message.recalled) {
@@ -48,6 +91,11 @@ export const MessageBubble = memo(function MessageBubble({
       className={[styles.line, mine ? styles['line--mine'] : styles['line--theirs']]
         .filter(Boolean)
         .join(' ')}
+      onContextMenu={onContextMenu}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={clearPress}
+      onTouchCancel={clearPress}
     >
       {/* 对方头像（群聊每条都显示） */}
       {!mine ? (
@@ -110,19 +158,10 @@ export const MessageBubble = memo(function MessageBubble({
             ) : null}
           </div>
 
-          {/* 自己的消息：状态图标 + 撤回 */}
+          {/* 自己的消息：状态图标（撤回改由右键菜单触发） */}
           {mine ? (
             <span className={styles.line__meta}>
               <StatusIcon status={message.status} />
-              <button
-                type="button"
-                className={styles.line__recall}
-                aria-label="撤回这条消息"
-                title="撤回"
-                onClick={() => onRecall?.(message)}
-              >
-                撤回
-              </button>
             </span>
           ) : null}
         </div>

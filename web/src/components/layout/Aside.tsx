@@ -60,7 +60,7 @@ export function Aside() {
 
       {/* ② 趋势 */}
       <section className={styles.card}>
-        <h2 className={styles.card__title}>正在发生</h2>
+        <h2 className={styles.card__title}>热门话题</h2>
         {TRENDS.map((t, i) => (
           <button
             key={t.topic}

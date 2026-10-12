@@ -7,12 +7,14 @@ import {
   MoreHorizontal,
   Send,
   Smile,
+  Undo2,
   Video as VideoIcon,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { MessageBubble } from '@/components/message/MessageBubble';
 import { ConversationInfoPanel } from '@/components/message/ConversationInfoPanel';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { ContextMenu, type ContextMenuItem } from '@/components/common/ContextMenu';
 import { toast } from '@/stores/toastStore';
 import { useMessageStore } from '@/stores/messageStore';
 import { useConversationStore } from '@/stores/conversationStore';
@@ -44,6 +46,10 @@ export function ChatThreadPage() {
   const [draft, setDraft] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  /** 右键菜单：锚点是右键（触屏为长按）时的视口坐标 */
+  const [menu, setMenu] = useState<{ message: Message; point: { x: number; y: number } } | null>(
+    null,
+  );
   const [recallTarget, setRecallTarget] = useState<Message | null>(null);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -67,6 +73,27 @@ export function ChatThreadPage() {
     },
     [conversation, members],
   );
+
+  /* -------------------- 消息操作菜单 --------------------
+     只有自己发的消息会请求菜单（判定在 MessageBubble 里）。
+     后续要加「删除」等操作，往 menuItems 里追加一项即可。 */
+  const openMenu = useCallback((message: Message, point: { x: number; y: number }) => {
+    setMenu({ message, point: { x: point.x, y: point.y } });
+  }, []);
+
+  const closeMenu = useCallback(() => setMenu(null), []);
+
+  const menuItems = useMemo<ContextMenuItem[]>(() => {
+    if (!menu) return [];
+    return [
+      {
+        key: 'recall',
+        label: '撤回',
+        icon: <Undo2 size={16} strokeWidth={1.9} aria-hidden />,
+        onSelect: () => setRecallTarget(menu.message),
+      },
+    ];
+  }, [menu]);
 
   /* -------------------- 加载 + 清未读 --------------------
      依赖里只放 conversationId（字符串），不放 conversation 对象：
@@ -242,7 +269,7 @@ export function ChatThreadPage() {
                     showSender={isGroup}
                     senderName={s.name}
                     senderAvatar={s.avatar}
-                    onRecall={(msg) => setRecallTarget(msg)}
+                    onRequestMenu={openMenu}
                   />
                 );
               })
@@ -342,6 +369,14 @@ export function ChatThreadPage() {
         }}
       />
 
+      {/* ---------- 消息操作菜单（右键 / 长按自己的气泡）---------- */}
+      <ContextMenu
+        point={menu?.point ?? null}
+        items={menuItems}
+        onClose={closeMenu}
+        ariaLabel="消息操作"
+      />
+
       {/* ---------- 撤回确认 ---------- */}
       <ConfirmDialog
         open={recallTarget !== null}
@@ -350,11 +385,12 @@ export function ChatThreadPage() {
         confirmText="撤回"
         description="撤回后，所有人都将看不到这条消息的内容。消息会显示为「你撤回了一条消息」。"
         onConfirm={() => {
-          if (recallTarget) {
-            recall(conversationId, recallTarget.message_id);
-            toast.success('已撤回');
-          }
+          const target = recallTarget;
           setRecallTarget(null);
+          if (!target) return;
+          void recall(conversationId, target.message_id)
+            .then(() => toast.success('已撤回'))
+            .catch(() => toast.error('撤回失败，请重试'));
         }}
       />
     </AppShell>

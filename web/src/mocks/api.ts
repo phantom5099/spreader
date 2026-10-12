@@ -15,12 +15,14 @@ import type {
   UserSummary,
 } from '@/types/user';
 import type { Draft, PublishProgress, PublishStage } from '@/types/draft';
+import type { Message } from '@/types/message';
 import { ALL_FEED_ITEMS, SUGGESTED_USERS } from './feed';
 import { SHORT_VIDEOS } from './shortVideos';
 import { CURRENT_USER } from './currentUser';
 import { avatarDataUri } from './placeholders';
 import { readDrafts, writeDrafts } from './drafts';
 import { readSearchHistory, writeSearchHistory } from './searchHistory';
+import { appendMessage, markRecalled, readMessages } from './messages';
 import {
   ALL_PROFILES,
   MY_BLOCKED,
@@ -244,6 +246,53 @@ export async function postComment(
     reply_to: replyTo,
     replies: [],
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  消息                                                                        */
+/* -------------------------------------------------------------------------- */
+
+/** 拉取某会话的消息列表 */
+export async function fetchMessages(conversationId: string): Promise<Message[]> {
+  await delay(260);
+  return readMessages(conversationId);
+}
+
+/**
+ * 发送消息。
+ * message_id 由客户端生成（幂等键）：乐观 UI 与落库结果共用同一个 id，
+ * 撤回 / 删除等后续操作不需要再做「临时 id → 服务端 id」的替换。
+ */
+export async function sendMessageApi(input: {
+  message_id: string;
+  conversation_id: string;
+  text: string;
+  kind?: Message['kind'];
+  extra?: Partial<Message>;
+}): Promise<Message> {
+  await delay(180);
+  const { message_id, conversation_id, text, kind = 'text', extra } = input;
+  return appendMessage({
+    message_id,
+    conversation_id,
+    sender_id: CURRENT_USER.user_id,
+    kind,
+    text,
+    published_at: new Date().toISOString(),
+    status: 'sent',
+    ...extra,
+  });
+}
+
+/** 撤回消息：服务端清空正文与媒体，客户端拿回撤回后的消息体 */
+export async function recallMessageApi(
+  conversationId: string,
+  messageId: string,
+): Promise<Message> {
+  await delay(220);
+  const next = markRecalled(conversationId, messageId);
+  if (!next) throw new Error('message_not_found');
+  return next;
 }
 
 /* -------------------------------------------------------------------------- */

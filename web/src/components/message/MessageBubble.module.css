@@ -188,7 +188,7 @@
   overflow: hidden;
 }
 
-/* ---------- 状态与撤回 ---------- */
+/* ---------- 状态 ---------- */
 .line__meta {
   flex: 0 0 auto;
   display: inline-flex;
@@ -210,23 +210,6 @@
   color: var(--danger);
 }
 
-.line__recall {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-
-.line:hover .line__recall,
-.line__recall:focus-visible {
-  opacity: 1;
-}
-
-.line__recall:hover {
-  color: var(--danger);
-  text-decoration: underline;
-}
-
 /* ---------- 时间 ---------- */
 .line__time {
   margin: 2px 4px 0;
@@ -242,8 +225,7 @@
 
 /* 触屏没有 hover：直接常显 */
 @media (hover: none) {
-  .line__time,
-  .line__recall {
+  .line__time {
     opacity: 1;
   }
 }
