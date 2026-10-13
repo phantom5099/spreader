@@ -1,0 +1,82 @@
+/* ==========================================================================
+   Toaster：全局轻提示容器
+   底部居中，2 秒自动消失；失败态带重试
+   ========================================================================== */
+
+.toaster {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 88px;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  padding: 0 16px;
+  max-width: 100%;
+}
+
+@media (max-width: 599px) {
+  .toaster {
+    bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+}
+
+.toast {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 440px;
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  line-height: 1.35;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+  animation: toast-in var(--dur-base) var(--ease-out);
+}
+
+.toast--success {
+  background: var(--repost);
+}
+
+.toast--error {
+  background: var(--danger);
+  border-radius: var(--radius-lg);
+}
+
+.toast__message {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.toast__action {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.toast__action:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

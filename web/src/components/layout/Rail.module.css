@@ -1,0 +1,174 @@
+/* ==========================================================================
+   左导航栏（Rail）
+   xl/lg：275 / 240px 带文字；md：88px 仅图标
+   ========================================================================== */
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding-top: 4px;
+}
+
+/* ---------- Logo ---------- */
+.rail__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  margin: 4px 0 2px;
+  border-radius: var(--radius-pill);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.rail__logo:hover {
+  background: var(--bg-hover);
+}
+
+.rail__logoMark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+}
+
+/* ---------- 导航列表 ---------- */
+.rail__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.rail__item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  font-size: var(--font-xl);
+  line-height: 1;
+  transition: background-color var(--dur-fast) var(--ease-out);
+  position: relative;
+}
+
+.rail__item:hover {
+  background: var(--bg-hover);
+  text-decoration: none;
+}
+
+.rail__item--active {
+  font-weight: 700;
+}
+
+.rail__item--active .rail__icon {
+  color: var(--accent);
+}
+
+.rail__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+}
+
+.rail__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 未读角标 */
+.rail__badge {
+  position: absolute;
+  top: 6px;
+  left: 26px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ---------- 底部簇：发帖按钮 + 账号菜单 ---------- */
+.rail__foot {
+  margin-top: auto;
+  padding-top: 16px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- 发帖按钮（通栏药丸，内容只有一个 + 号）----------
+   形状：宽度撑满导航栏（不设 width，靠 align-items 拉伸）。 */
+.rail__compose {
+  margin: 0;
+  height: 52px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  transition: background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.rail__compose:hover {
+  background: var(--accent-hover);
+}
+
+.rail__compose:active {
+  transform: scale(0.98);
+}
+
+/* ==========================================================================
+   图标档：<1190 时左导航收成 88px 图标条
+   必须与 AppShell.module.css 里 rail 变 88px 的断点一致，
+   否则标签会在 88px 宽的栏里溢出（被 overflow-x: hidden 裁掉一半）。
+   ========================================================================== */
+
+@media (max-width: 1189px) {
+  .rail {
+    align-items: center;
+    width: 100%;
+  }
+  .rail__nav {
+    align-items: center;
+    width: 100%;
+  }
+  .rail__item {
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+  }
+  .rail__label {
+    display: none;
+  }
+  .rail__badge {
+    left: 50%;
+    transform: translateX(2px);
+  }
+  .rail__compose {
+    width: 50px;
+    height: 50px;
+  }
+  .rail__foot {
+    padding-top: 12px;
+    align-items: center;
+  }
+}

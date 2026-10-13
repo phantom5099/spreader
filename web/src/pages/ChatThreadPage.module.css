@@ -1,0 +1,338 @@
+/* ==========================================================================
+   ChatThreadPage：会话页
+   气泡左右分列 + 吸底输入区
+   ========================================================================== */
+
+.page {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.page__main {
+  flex: 0 1 var(--col-main);
+  width: 100%;
+  max-width: var(--col-main);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ---------- 顶栏 ---------- */
+.bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--header-h);
+  padding: 0 8px;
+  background: var(--bg-frost);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  z-index: var(--z-sticky);
+}
+
+.bar__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.bar__icon:hover {
+  background: var(--bg-hover);
+}
+
+.bar__titleBtn {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.bar__titleBtn:hover {
+  background: var(--bg-hover);
+}
+
+.bar__avatarWrap {
+  position: relative;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+}
+
+.bar__avatar {
+  display: block;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.bar__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bar__online {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-pill);
+  background: var(--repost);
+  border: 2px solid var(--bg);
+  box-sizing: content-box;
+}
+
+.bar__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.bar__name {
+  font-size: var(--font-base);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar__sub {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+/* ---------- 消息流 ---------- */
+.thread {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
+}
+
+.thread__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 24px 22px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.thread__introAvatar {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.thread__introAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thread__introTitle {
+  font-size: var(--font-lg);
+  font-weight: 800;
+}
+
+.thread__introDesc {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.threadLoading {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 var(--card-pad-x);
+}
+
+/* ---------- 输入区 ---------- */
+.composer {
+  flex: 0 0 auto;
+  position: relative;
+  padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--bg-frost);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.composer__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 22px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.composer__row:focus-within {
+  border-color: var(--accent);
+}
+
+.composer__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.composer__icon:hover {
+  background: var(--accent-soft);
+}
+
+.composer__icon--on {
+  background: var(--accent-soft);
+}
+
+.composer__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 120px;
+  padding: 7px 4px;
+  border: none;
+  background: none;
+  outline: none;
+  resize: none;
+  font-size: var(--font-base);
+  line-height: 1.45;
+  color: var(--text-primary);
+  field-sizing: content;
+}
+
+.composer__input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.composer__send {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+
+.composer__send:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.composer__send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------- 表情面板 ---------- */
+.emojiPanel {
+  position: absolute;
+  left: 12px;
+  bottom: calc(100% - 4px);
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2px;
+  padding: 8px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+  z-index: var(--z-dropdown);
+}
+
+.emojiPanel__item {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  font-size: 19px;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.emojiPanel__item:hover {
+  background: var(--bg-hover);
+}
+
+/* ---------- 会话不存在 ---------- */
+.missing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 72px 32px;
+  color: var(--text-secondary);
+}
+
+.missing__title {
+  margin-top: 14px;
+  font-size: var(--font-lg);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.missing__desc {
+  margin-top: 6px;
+  max-width: 34ch;
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+
+.missing__btn {
+  margin-top: 18px;
+  height: 36px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+/* ---------- 窄屏：底栏让位 ---------- */
+@media (max-width: 599px) {
+  .page__main {
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .thread {
+    min-height: 60vh;
+  }
+
+  .bar {
+    position: sticky;
+    top: 0;
+  }
+}

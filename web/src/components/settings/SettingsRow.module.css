@@ -1,0 +1,150 @@
+/* ==========================================================================
+   SettingsRow：设置项「分组列表」范式
+   左标签 + 右控件，分组间 16px 间距
+   ========================================================================== */
+
+.group {
+  margin: 16px 0;
+}
+
+.group:first-of-type {
+  margin-top: 12px;
+}
+
+.group__title {
+  padding: 0 var(--card-pad-x) 8px;
+  font-size: var(--font-lg);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.group__card {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.group__desc {
+  padding: 8px var(--card-pad-x) 0;
+  font-size: var(--font-xs);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* ---------- 行 ---------- */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px var(--card-pad-x);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row--clickable {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.row--clickable:hover {
+  background: var(--bg-hover);
+}
+
+.row__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--text-secondary);
+}
+
+.row__controlFirst {
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+
+.row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row__label {
+  font-size: var(--font-base);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.row__label--danger {
+  color: var(--danger);
+}
+
+.row__desc {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.row__control {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row__chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--text-tertiary);
+}
+
+/* ---------- 开关 ---------- */
+.switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+.switch--on {
+  background: var(--accent);
+}
+
+.switch--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.switch--on .switch__knob {
+  transform: translateX(18px);
+}
+
+/* ---------- 值文本 ---------- */
+.value {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

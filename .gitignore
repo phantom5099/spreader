@@ -12,6 +12,8 @@ docs-ignore
 *.dylib
 *.test
 *.out
+# tsc -b 的增量编译缓存（含绝对路径，入库会导致换机器时编译行为不一致）
+*.tsbuildinfo
 
 # ===== Go =====
 /vendor/

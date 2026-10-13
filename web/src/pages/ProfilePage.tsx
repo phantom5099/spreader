@@ -1,0 +1,526 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import {
+  CalendarDays,
+  Link2,
+  MapPin,
+  MoreHorizontal,
+  UserX,
+  Ban,
+  Share,
+  BellOff,
+  Flag,
+} from 'lucide-react';
+import { AppShell } from '@/components/layout/AppShell';
+import { Aside } from '@/components/layout/Aside';
+import { PageHeader, headerStyles } from '@/components/layout/PageHeader';
+import { PostCard } from '@/components/post/PostCard';
+import { PostMenu } from '@/components/post/PostMenu';
+import { PostCardSkeleton } from '@/components/post/PostCardSkeleton';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { Modal } from '@/components/common/Modal';
+import { ReportModal } from '@/components/report/ReportModal';
+import { EditProfileModal } from '@/components/profile/EditProfileModal';
+import { FollowButton } from '@/components/profile/FollowButton';
+import { ProfileTabs } from '@/components/profile/ProfileTabs';
+import { ProfileEmpty } from '@/components/profile/ProfileStates';
+import { toast } from '@/stores/toastStore';
+import { useFeedStore } from '@/stores/feedStore';
+import { useConversationStore } from '@/stores/conversationStore';
+import { fetchProfile, type ProfileBundle } from '@/mocks/api';
+import { CURRENT_USER } from '@/mocks/currentUser';
+import { formatCount } from '@/utils/format';
+import { sharePostLink } from '@/utils/share';
+import type { FeedItem } from '@/types/feed';
+import type { ProfileTab } from '@/types/user';
+import styles from './ProfilePage.module.css';
+
+const JoinedText = ({ iso }: { iso: string }) => {
+  const d = new Date(iso);
+  return <>{`${d.getFullYear()}年${d.getMonth() + 1}月加入`}</>;
+};
+
+export function ProfilePage() {
+  const { handle = '' } = useParams();
+  const navigate = useNavigate();
+  const routerLocation = useLocation();
+
+  const [bundle, setBundle] = useState<ProfileBundle | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [tab, setTab] = useState<ProfileTab>('posts');
+  const [following, setFollowing] = useState(false);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  /** 他人主页的「更多操作」弹窗；自己的主页没有这个入口 */
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  /** 单条动态的「更多」菜单 */
+  const [postMenu, setPostMenu] = useState<{ item: FeedItem; point: { x: number; y: number } } | null>(
+    null,
+  );
+  const [reportOpen, setReportOpen] = useState(false);
+
+  const topRef = useRef<HTMLDivElement | null>(null);
+
+  /* -------------------- 加载资料 -------------------- */
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setNotFound(false);
+    setTab('posts');
+
+    void fetchProfile(handle).then((data) => {
+      if (!alive) return;
+      if (!data) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+      setBundle(data);
+      setFollowing(data.profile.relation === 'following');
+      setLoading(false);
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [handle]);
+
+  /* -------------------- 关注状态机 -------------------- */
+  const onFollowChange = useCallback((next: boolean) => {
+    setFollowing(next);
+  }, []);
+
+  /* 关注后才出现的聊天圆钮：没有现成会话就现开一条，和关注列表里的行为一致 */
+  const startDirect = useConversationStore((s) => s.startDirect);
+  const openChat = useCallback(
+    (user: { nickname: string; handle: string; avatar_url: string }) => {
+      navigate(`/messages/${startDirect(user)}`);
+    },
+    [navigate, startDirect],
+  );
+
+  /* -------------------- 本地互动（复用 feedStore 的乐观更新语义）-------------------- */
+  const toggleLike = useFeedStore((s) => s.toggleLike);
+  const toggleBookmark = useFeedStore((s) => s.toggleBookmark);
+
+  /** 个人主页的列表是快照，互动需就地改本地数组 */
+  const patchLocal = useCallback(
+    (contentId: string, fn: (item: FeedItem) => FeedItem) => {
+      setBundle((prev) => {
+        if (!prev) return prev;
+        const apply = (list: FeedItem[]) =>
+          list.map((it) => (it.content_id === contentId ? fn(it) : it));
+        return {
+          ...prev,
+          posts: apply(prev.posts),
+          media: apply(prev.media),
+          likes: apply(prev.likes),
+        };
+      });
+    },
+    [],
+  );
+
+  const likeItem = useCallback(
+    (item: FeedItem) => {
+      toggleLike(item.content_id);
+      patchLocal(item.content_id, (it) => ({
+        ...it,
+        viewer: { ...it.viewer, liked: !it.viewer.liked },
+        counters: {
+          ...it.counters,
+          like: it.counters.like + (it.viewer.liked ? -1 : 1),
+        },
+      }));
+    },
+    [patchLocal, toggleLike],
+  );
+
+  const bookmarkItem = useCallback(
+    (item: FeedItem) => {
+      toggleBookmark(item.content_id);
+      patchLocal(item.content_id, (it) => ({
+        ...it,
+        viewer: { ...it.viewer, bookmarked: !it.viewer.bookmarked },
+      }));
+      toast.success(item.viewer.bookmarked ? '已取消收藏' : '已加入收藏');
+    },
+    [patchLocal, toggleBookmark],
+  );
+
+  /** 移除一条（删除动态 / 不感兴趣） */
+  const dropLocal = useCallback((contentId: string) => {
+    setBundle((prev) => {
+      if (!prev) return prev;
+      const drop = (list: FeedItem[]) => list.filter((it) => it.content_id !== contentId);
+      return { ...prev, posts: drop(prev.posts), media: drop(prev.media), likes: drop(prev.likes) };
+    });
+  }, []);
+
+  /** 编辑后替换本地快照里的那一条 */
+  const replaceLocal = useCallback((next: FeedItem) => {
+    setBundle((prev) => {
+      if (!prev) return prev;
+      const swap = (list: FeedItem[]) =>
+        list.map((it) => (it.content_id === next.content_id ? next : it));
+      return { ...prev, posts: swap(prev.posts), media: swap(prev.media), likes: swap(prev.likes) };
+    });
+  }, []);
+
+  const shareProfile = useCallback(() => {
+    void navigator.clipboard
+      ?.writeText(`${location.origin}/u/${handle}`)
+      .then(() => toast.success('主页链接已复制'))
+      .catch(() => toast.error('复制失败，请手动复制地址栏链接'));
+  }, [handle]);
+
+  /* -------------------- 渲染分支 -------------------- */
+  if (notFound) {
+    return (
+      <AppShell>
+        <div className={styles.page}>
+          <div className={styles.page__main}>
+            <PageHeader title="主页" />
+            <ProfileEmpty
+              kind="notFound"
+              action={{ text: '回到信息流', onClick: () => navigate('/') }}
+            />
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (loading || !bundle) {
+    return (
+      <AppShell aside={<Aside />}>
+        <div className={styles.page}>
+          <div className={styles.page__main}>
+            <div className={styles.skeletonCover} />
+            <PostCardSkeleton count={4} withMedia={false} />
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const { profile, state, isSelf } = bundle;
+
+  /* 已注销 / 被拉黑：整页替换 */
+  if (state === 'deactivated') {
+    return (
+      <AppShell>
+        <div className={styles.page}>
+          <div className={styles.page__main}>
+            <PageHeader title="主页" />
+            <div className={styles.deactivated}>
+              <span className={styles.deactivated__icon} aria-hidden>
+                <UserX size={28} strokeWidth={1.7} />
+              </span>
+              <h2 className={styles.deactivated__title}>该账号已注销</h2>
+              <p className={styles.deactivated__desc}>
+                @{profile.handle} 已注销账号，其发布的内容与互动记录不再公开。
+              </p>
+              <button
+                type="button"
+                className={styles.deactivated__btn}
+                onClick={() => navigate('/')}
+              >
+                回到信息流
+              </button>
+            </div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (state === 'blocked_me') {
+    return (
+      <AppShell>
+        <div className={styles.page}>
+          <div className={styles.page__main}>
+            <PageHeader title="主页" />
+            <div className={styles.deactivated}>
+              <span className={styles.deactivated__icon} aria-hidden>
+                <Ban size={28} strokeWidth={1.7} />
+              </span>
+              <h2 className={styles.deactivated__title}>你无法查看此主页</h2>
+              <p className={styles.deactivated__desc}>
+                对方已将你加入黑名单，或对你的账号做了访问限制。
+              </p>
+              <button
+                type="button"
+                className={styles.deactivated__btn}
+                onClick={() => navigate('/')}
+              >
+                回到信息流
+              </button>
+            </div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const currentList =
+    tab === 'posts' ? bundle.posts : tab === 'media' ? bundle.media : bundle.likes;
+
+  const tabCounts: Record<ProfileTab, number> = {
+    posts: bundle.posts.length,
+    media: bundle.media.length,
+    likes: bundle.likes.length,
+  };
+
+  return (
+    <AppShell aside={<Aside />}>
+      <div className={styles.page} ref={topRef}>
+        <div className={styles.page__main}>
+          {/* ---------- 封面 ---------- */}
+          <div className={styles.cover}>
+            <img className={styles.cover__img} src={profile.cover_url} alt="" aria-hidden />
+            <button
+              type="button"
+              className={styles.cover__share}
+              aria-label="分享主页"
+              title="分享主页"
+              onClick={shareProfile}
+            >
+              <Share size={19} strokeWidth={2} aria-hidden />
+            </button>
+          </div>
+
+          {/* ---------- 资料区 ---------- */}
+          <section className={styles.head}>
+            <div className={styles.head__avatarRow}>
+              {/* 头像不再作为入口：本人用右侧「编辑资料」，他人也没有可跳转的目标 */}
+              <span className={styles.head__avatar}>
+                <img src={profile.avatar_url} alt="" />
+              </span>
+
+              <div className={styles.head__action}>
+                {/* 自己的主页不放「⋯」：右边已经有「编辑资料」，
+                    再挂一个入口只会让人猜哪个是干嘛的（他人的主页保留，举报在那里） */}
+                {!isSelf ? (
+                  <button
+                    type="button"
+                    className={headerStyles.iconBtn}
+                    aria-label="更多操作"
+                    onClick={() => setMoreOpen(true)}
+                  >
+                    <MoreHorizontal size={20} strokeWidth={2} aria-hidden />
+                  </button>
+                ) : null}
+
+                <FollowButton
+                  relation={profile.relation}
+                  following={following}
+                  isSelf={isSelf}
+                  onChange={onFollowChange}
+                  onEditProfile={() => setEditOpen(true)}
+                  onChat={isSelf ? undefined : () => openChat(profile)}
+                  chatLabel={`给 @${profile.handle} 发消息`}
+                />
+              </div>
+            </div>
+
+            <div className={styles.head__names}>
+              <h1 className={styles.head__name}>
+                {profile.nickname}
+              </h1>
+              <span className={styles.head__handle}>@{profile.handle}</span>
+            </div>
+
+            {profile.follows_me && !isSelf ? (
+              <span className={styles.head__followsYou}>关注了你</span>
+            ) : null}
+
+            {profile.bio ? <p className={styles.head__bio}>{profile.bio}</p> : null}
+
+            <div className={styles.head__meta}>
+              {profile.location ? (
+                <span className={styles.head__metaItem}>
+                  <MapPin size={15} strokeWidth={1.9} aria-hidden />
+                  {profile.location}
+                </span>
+              ) : null}
+              {profile.website ? (
+                <a
+                  className={styles.head__metaLink}
+                  href={`https://${profile.website}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  <Link2 size={15} strokeWidth={1.9} aria-hidden />
+                  {profile.website}
+                </a>
+              ) : null}
+              <span className={styles.head__metaItem}>
+                <CalendarDays size={15} strokeWidth={1.9} aria-hidden />
+                <JoinedText iso={profile.joined_at} />
+              </span>
+            </div>
+
+            <div className={styles.head__stats}>
+              <button
+                type="button"
+                className={styles.head__stat}
+                onClick={() => navigate(`/u/${profile.handle}/following`)}
+              >
+                <span className={styles.head__statNum}>{formatCount(profile.following)}</span>
+                <span className={styles.head__statLabel}>关注</span>
+              </button>
+              <button
+                type="button"
+                className={styles.head__stat}
+                onClick={() => navigate(`/u/${profile.handle}/followers`)}
+              >
+                <span className={styles.head__statNum}>{formatCount(profile.followers)}</span>
+                <span className={styles.head__statLabel}>粉丝</span>
+              </button>
+            </div>
+          </section>
+
+          {/* ---------- 三 Tab（吸顶）---------- */}
+          <ProfileTabs value={tab} counts={tabCounts} onChange={setTab} />
+
+          {/* ---------- 列表 ---------- */}
+          <div className={styles.list}>
+            {blocked ? (
+              <ProfileEmpty
+                kind="blocked"
+                action={{ text: '解除拉黑', onClick: () => setBlocked(false) }}
+              />
+            ) : currentList.length === 0 ? (
+              <ProfileEmpty
+                kind={tab}
+                action={
+                  isSelf && tab === 'posts'
+                    ? {
+                        text: '发一条动态',
+                        onClick: () =>
+                          navigate('/compose', {
+                            state: { background: routerLocation },
+                          }),
+                      }
+                    : undefined
+                }
+              />
+            ) : (
+              currentList.map((item) => (
+                <PostCard
+                  key={`${tab}_${item.content_id}`}
+                  item={item}
+                  viewerIsAuthor={isSelf}
+                  onLike={likeItem}
+                  onShare={() => sharePostLink(item.content_id)}
+                  onBookmark={bookmarkItem}
+                  onReply={() => navigate(`/post/${item.content_id}`)}
+                  onMore={(target, point) => setPostMenu({ item: target, point })}
+                />
+              ))
+            )}
+            <div className={styles.list__tail} />
+          </div>
+        </div>
+      </div>
+
+      {/* ---------- 编辑资料 ---------- */}
+      <EditProfileModal
+        open={editOpen}
+        profile={profile}
+        onClose={() => setEditOpen(false)}
+        onSaved={(patch) => {
+          setBundle((prev) => (prev ? { ...prev, profile: { ...prev.profile, ...patch } } : prev));
+        }}
+      />
+
+      {/* ---------- 他人主页的更多操作 ---------- */}
+      <Modal
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        size="sm"
+        title="更多操作"
+        showClose={false}
+      >
+        <div className={styles.menuList}>
+          <button
+            type="button"
+            className={styles.menuItem}
+            onClick={() => {
+              toast.show(`已静音 @${profile.handle}，你将不再看到 TA 的动态`);
+              setMoreOpen(false);
+            }}
+          >
+            <BellOff size={18} strokeWidth={1.9} aria-hidden />
+            静音 @{profile.handle}
+          </button>
+
+          <button
+            type="button"
+            className={`${styles.menuItem} ${styles['menuItem--danger']}`}
+            onClick={() => {
+              setMoreOpen(false);
+              setReportOpen(true);
+            }}
+          >
+            <Flag size={18} strokeWidth={1.9} aria-hidden />
+            举报 @{profile.handle}
+          </button>
+
+          <button
+            type="button"
+            className={`${styles.menuItem} ${styles['menuItem--danger']}`}
+            onClick={() => {
+              setMoreOpen(false);
+              setBlockOpen(true);
+            }}
+          >
+            <Ban size={18} strokeWidth={1.9} aria-hidden />
+            拉黑 @{profile.handle}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ---------- 动态的操作菜单（卡片右上 ⋯）---------- */}
+      <PostMenu
+        point={postMenu?.point ?? null}
+        item={postMenu?.item ?? null}
+        mine={postMenu?.item.author.handle === CURRENT_USER.handle}
+        onClose={() => setPostMenu(null)}
+        onUpdated={replaceLocal}
+        onRemoved={(target) => dropLocal(target.content_id)}
+      />
+
+      {/* ---------- 举报主页 ---------- */}
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetLabel={`@${profile.handle} 的主页`}
+      />
+
+      {/* ---------- 拉黑二次确认 ---------- */}
+      <ConfirmDialog
+        open={blockOpen}
+        onClose={() => setBlockOpen(false)}
+        danger
+        title={`拉黑 @${profile.handle}？`}
+        confirmText="拉黑"
+        description={
+          <>
+            TA 将无法关注你、查看你的动态或给你发消息，你们之间的关注关系会被解除。
+            TA 不会收到任何通知。你可以随时在「设置 → 隐私 → 黑名单」中解除。
+          </>
+        }
+        onConfirm={() => {
+          setBlockOpen(false);
+          setBlocked(true);
+          toast.success(`已拉黑 @${profile.handle}`);
+        }}
+      />
+    </AppShell>
+  );
+}

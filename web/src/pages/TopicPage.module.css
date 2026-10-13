@@ -1,0 +1,221 @@
+/* ==========================================================================
+   TopicPage：话题页
+   简介 + 动态数 + 聚合列表 + 关注按钮
+   ========================================================================== */
+
+.page {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.page__main {
+  flex: 0 1 var(--col-main);
+  width: 100%;
+  max-width: var(--col-main);
+  min-width: 0;
+}
+
+/* 右栏由 AppShell 的 .shell__aside 承载（见 AppShell.module.css） */
+
+/* ---------- 顶栏 ---------- */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--header-h);
+  padding: 0 8px;
+  background: var(--bg-frost);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.bar__back,
+.bar__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.bar__back:hover,
+.bar__icon:hover {
+  background: var(--bg-hover);
+}
+
+.bar__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.bar__name {
+  font-size: var(--font-lg);
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar__sub {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+/* ---------- 封面 ---------- */
+.cover {
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---------- 简介 ---------- */
+.head {
+  padding: 16px var(--card-pad-x) 18px;
+}
+
+.head__badge {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-top: -44px;
+  border-radius: var(--radius-lg);
+  border: 4px solid var(--bg);
+  background: var(--accent);
+  color: #fff;
+  position: relative;
+  z-index: 1;
+}
+
+.head__title {
+  margin-top: 10px;
+  font-size: var(--font-xl);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.head__desc {
+  margin-top: 8px;
+  font-size: var(--font-base);
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.head__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 12px;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.head__metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.head__action {
+  margin-top: 14px;
+}
+
+/* ---------- 三 Tab ---------- */
+.tabs {
+  position: sticky;
+  top: var(--header-h);
+  z-index: calc(var(--z-sticky) - 1);
+  display: flex;
+  background: var(--bg-frost);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  position: relative;
+  flex: 1 1 0;
+  height: 48px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+
+.tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tab--active {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.tab--active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 44px;
+  height: 3px;
+  margin-left: -22px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+/* ---------- 空态 ---------- */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 56px 32px;
+  color: var(--text-secondary);
+}
+
+.empty__title {
+  margin-top: 14px;
+  font-size: var(--font-lg);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.empty__desc {
+  margin-top: 6px;
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+
+.empty__btn {
+  margin-top: 18px;
+  height: 38px;
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.tail {
+  height: 24px;
+}

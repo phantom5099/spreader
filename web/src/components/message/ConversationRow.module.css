@@ -1,0 +1,179 @@
+/* ==========================================================================
+   ConversationRow：会话行
+   头像 48 + 名称 · 时间 | 最后一条消息预览 | 未读红点
+   在线状态：头像右下角 10px 绿点，离线不显示
+   ========================================================================== */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px var(--card-pad-x);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.row:hover {
+  background: var(--bg-hover);
+}
+
+/* ---------- 头像 ---------- */
+.row__avatarWrap {
+  position: relative;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+}
+
+.row__avatar {
+  display: block;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.row__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---------- 群聊头像堆叠 ---------- */
+.stack {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 48px;
+}
+
+.stack__item {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  border: 2px solid var(--bg);
+  background: var(--bg-elevated);
+}
+
+.stack__item:nth-child(1) {
+  left: 0;
+  top: 0;
+}
+
+.stack__item:nth-child(2) {
+  right: 0;
+  top: 0;
+}
+
+.stack__item:nth-child(3) {
+  left: 9px;
+  bottom: 0;
+}
+
+.stack__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---------- 在线绿点：10px ---------- */
+.row__online {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--repost);
+  border: 2px solid var(--bg);
+  box-sizing: content-box;
+}
+
+/* ---------- 主体 ---------- */
+.row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.row__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.row__title {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: var(--font-base);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row__count {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.row__flags {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-tertiary);
+}
+
+.row__flag {
+  display: inline-flex;
+}
+
+.row__time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.row__bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.row__preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row__preview--unread {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.row__badge {
+  flex: 0 0 auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}

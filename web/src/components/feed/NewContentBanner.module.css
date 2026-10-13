@@ -1,0 +1,61 @@
+/* ==========================================================================
+   NewContentBanner：顶部"↑ N 条新内容"
+   距上次拉取 > 60s 且用户已滚动离顶时出现；点击回顶并合并
+   ========================================================================== */
+
+.banner {
+  position: sticky;
+  top: calc(var(--header-h) + 8px);
+  z-index: var(--z-sticky);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  height: 0;
+}
+
+.banner__btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  transform: translateY(0);
+  animation: banner-in var(--dur-base) var(--ease-out);
+}
+
+.banner__btn:hover {
+  background: var(--accent-hover);
+}
+
+.banner__avatarStack {
+  display: inline-flex;
+}
+
+.banner__avatarStack img {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--accent);
+}
+
+.banner__avatarStack img + img {
+  margin-left: -8px;
+}
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

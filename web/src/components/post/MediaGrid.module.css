@@ -1,0 +1,161 @@
+/* ==========================================================================
+   媒体区
+   1 张按比例 / 2 张等分 / 3 张 1大2小 / 4 张九宫格 / ≥5 张 +N
+   ========================================================================== */
+
+.single {
+  position: relative;
+  width: 100%;
+  background: var(--bg-elevated);
+}
+
+.single img {
+  width: 100%;
+  height: auto;
+  max-height: 510px;
+  object-fit: cover;
+}
+
+/* ---------- 多图网格 ---------- */
+.grid {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.grid--2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.grid--3 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.grid--3 .cell:first-child {
+  grid-row: span 2;
+}
+
+.grid--4 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.grid--many {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.cell {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  /* 1:1 单元格；整体高度由父容器 aspect-ratio 控制 */
+}
+
+.cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 网格整体宽高比（2 张用 2:1；3/4/多张用 1:1） */
+.grid--2 {
+  aspect-ratio: 2 / 1;
+}
+
+.grid--3,
+.grid--4,
+.grid--many {
+  aspect-ratio: 1 / 1;
+}
+
+/* ≥5 张：右下角 +N */
+.moreOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.52);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* ---------- 视频 ---------- */
+.video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+
+.video video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.video__duration {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.video__mutedHint {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.video__mutedHint:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* 海报层：未播放时显示首帧 + 大播放按钮 */
+.video__poster {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background-size: cover;
+  background-position: center;
+}
+
+.video__play {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  backdrop-filter: blur(2px);
+}
+
+/* 媒体加载中/失败占位 */
+.mediaFallback {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  aspect-ratio: 16 / 9;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}

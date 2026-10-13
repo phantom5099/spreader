@@ -1,0 +1,297 @@
+/* ==========================================================================
+   ProfilePage：个人主页
+   封面 600×200 + 头像 80px（叠封面左下、白边 4px）+ 三 Tab 吸顶
+   ========================================================================== */
+
+.page {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.page__main {
+  flex: 0 1 var(--col-main);
+  width: 100%;
+  max-width: var(--col-main);
+  min-width: 0;
+}
+
+/* 右栏由 AppShell 的 .shell__aside 承载（见 AppShell.module.css） */
+
+/* ---------- 封面 ---------- */
+/* 顶部留出一条缝隙：封面不贴着视口最上沿（此处已无吸顶栏，贴边会显得被裁掉） */
+.cover {
+  position: relative;
+  width: 100%;
+  margin-top: 12px;
+  aspect-ratio: 3 / 1;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.cover__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 分享按钮：浮在封面右上角的圆形按钮，压半透明底以适配任意封面图 */
+.cover__share {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.cover__share:hover {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.skeletonCover {
+  width: 100%;
+  margin-top: 12px;
+  aspect-ratio: 3 / 1;
+  background: var(--skeleton);
+}
+
+/* ---------- 资料区 ---------- */
+.head {
+  padding: 12px var(--card-pad-x) 14px;
+}
+
+.head__avatarRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* 头像叠在封面左下：负 margin 上提，白边 4px */
+.head__avatar {
+  flex: 0 0 auto;
+  width: var(--avatar-profile);
+  height: var(--avatar-profile);
+  margin-top: calc(-1 * (var(--avatar-profile) / 2 + 8px));
+  border-radius: var(--radius-pill);
+  border: 4px solid var(--bg);
+  background: var(--bg-elevated);
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.head__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.head__action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 12px;
+}
+
+/* ---------- 名字行 ---------- */
+.head__names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: -6px;
+}
+
+.head__name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-xl);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.head__handle {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.head__followsYou {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-active);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.head__bio {
+  margin-top: 12px;
+  font-size: var(--font-base);
+  line-height: 1.55;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---------- 元信息行（地区 / 链接 / 加入时间）---------- */
+.head__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin-top: 12px;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.head__metaItem,
+.head__metaLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.head__metaLink {
+  color: var(--accent);
+}
+
+.head__metaLink:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 关注 / 粉丝计数 ---------- */
+.head__stats {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 12px;
+}
+
+.head__stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.head__stat:hover .head__statLabel {
+  text-decoration: underline;
+}
+
+.head__statNum {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.head__statLabel {
+  color: var(--text-secondary);
+}
+
+/* ---------- 列表 ---------- */
+.list {
+  min-height: 200px;
+}
+
+.list__tail {
+  height: 24px;
+}
+
+/* ---------- 已注销 / 无权限 ---------- */
+.deactivated {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 64px 32px;
+}
+
+.deactivated__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.deactivated__title {
+  font-size: var(--font-xl);
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.deactivated__desc {
+  max-width: 34ch;
+  font-size: var(--font-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.deactivated__btn {
+  margin-top: 20px;
+  height: 38px;
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  background: var(--text-primary);
+  color: var(--bg);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.deactivated__btn:hover {
+  opacity: 0.88;
+}
+
+/* ---------- 更多操作菜单 ---------- */
+.menuList {
+  padding: 4px 0 8px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 20px;
+  font-size: var(--font-base);
+  font-weight: 600;
+  text-align: left;
+  color: var(--text-primary);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.menuItem:hover {
+  background: var(--bg-hover);
+}
+
+.menuItem--danger {
+  color: var(--danger);
+}
+
+.menuItem--danger:hover {
+  background: var(--danger-soft);
+}
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 599px) {
+  .head__name {
+    font-size: var(--font-lg);
+  }
+}

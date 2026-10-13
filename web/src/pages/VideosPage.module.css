@@ -1,0 +1,443 @@
+/* ==========================================================================
+   VideosPage：整屏竖向短视频
+   ========================================================================== */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ---------- 滚动容器 ---------- */
+.viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y mandatory;
+  background: #000;
+  scrollbar-width: none;
+}
+
+.viewport::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- 单条 ---------- */
+.video {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.video__art,
+.video__media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video__media {
+  z-index: 1;
+  background: transparent;
+}
+
+/* 上下都压一层暗角：上方给喇叭按钮、下方给作者与操作 */
+.video__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.76) 0%,
+    rgba(0, 0, 0, 0.32) 30%,
+    rgba(0, 0, 0, 0) 52%,
+    rgba(0, 0, 0, 0.24) 100%
+  );
+}
+
+/* 点击层：暂停 / 双击点赞。压在画面之上、操作条之下 */
+.video__stage {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  cursor: pointer;
+}
+
+/* 双击点赞的心形：只做一次缩放淡出 */
+.video__burst {
+  position: absolute;
+  z-index: 4;
+  top: 44%;
+  left: 50%;
+  margin: -48px 0 0 -48px;
+  color: var(--like);
+  pointer-events: none;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
+  animation: video-burst 700ms var(--ease-out) both;
+}
+
+@keyframes video-burst {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  35% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.24);
+    opacity: 0;
+  }
+}
+
+/* ---------- 暂停 / 静音 ---------- */
+.video__resumeWrap {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.video__resume {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  padding-left: 4px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.46);
+  color: #fff;
+  pointer-events: auto;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.video__resume:hover {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.video__mute {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.42);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.video__mute:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- 底部信息 + 右侧操作 ---------- */
+.video__bottom {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  padding: 16px 16px 22px;
+}
+
+.video__meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.video__authorRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.video__author {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #fff;
+  text-decoration: none;
+}
+
+.video__author:hover {
+  text-decoration: none;
+}
+
+.video__avatar {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.video__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video__names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.video__name {
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.video__handle {
+  font-size: var(--font-sm);
+  color: rgba(255, 255, 255, 0.74);
+  line-height: 1.3;
+}
+
+/* 轻量关注入口：这一页不打断观看，因此不用带二次确认的关注按钮 */
+.video__follow {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  color: #fff;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  transition: background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.video__follow:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.video__follow--on {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.video__caption {
+  margin-top: 8px;
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.video__actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.action:active {
+  transform: scale(0.88);
+}
+
+.action__count {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.action--liked {
+  color: var(--like);
+}
+
+.action--bookmarked {
+  color: var(--accent);
+}
+
+/* ---------- 播放进度 ---------- */
+.video__track {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.video__bar {
+  display: block;
+  height: 100%;
+  background: #fff;
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.video__srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 回复浮层 ---------- */
+.panel__hint {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.panel__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel__item:last-child {
+  border-bottom: none;
+}
+
+.panel__avatar {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.panel__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.panel__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.panel__top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.panel__name {
+  font-weight: 700;
+  font-size: var(--font-base);
+}
+
+.panel__handle {
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+}
+
+.panel__text {
+  margin-top: 2px;
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.panel__like {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 4px;
+  color: var(--text-tertiary);
+  font-size: var(--font-xs);
+}
+
+/* ---------- 空态 ---------- */
+.empty {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.empty__title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+}
+
+.empty__desc {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.empty__link {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   sm <600：底部 Tab 占了画面底部，可视高度相应扣掉
+   ========================================================================== */
+@media (max-width: 599px) {
+  .page {
+    height: calc(100dvh - var(--tabbar-h) - env(safe-area-inset-bottom));
+  }
+
+  .video__bottom {
+    padding: 14px 12px 20px;
+  }
+}

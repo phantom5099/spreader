@@ -1,0 +1,310 @@
+/* ==========================================================================
+   设计令牌（Design Tokens）
+   原则：三栏信息流骨架与信息层级沿用通用范式，皮肤完全自有（主色珊瑚橙 #ff6b4a）
+   ========================================================================== */
+
+:root {
+  /* ---------- 主色（自有：珊瑚橙）---------- */
+  --accent: #ff6b4a;
+  --accent-hover: #f2552f;
+  --accent-soft: rgba(255, 107, 74, 0.1);
+
+  /* ---------- 互动语义色（固定，不随主色变）---------- */
+  --like: #f91880;
+  --like-soft: rgba(249, 24, 128, 0.1);
+  --repost: #00ba7c;
+  --repost-soft: rgba(0, 186, 124, 0.1);
+  --danger: #f4212e;
+  --danger-soft: rgba(244, 33, 46, 0.1);
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.12);
+  --success: #00ba7c;
+  --success-soft: rgba(0, 186, 124, 0.1);
+
+  /* 「关注」分裂出的「取消关注」实心色。
+     刻意用冷色而不是主色：两者同时存在时靠色相差一眼分辨状态，
+     同色实心的话只剩文案差异，扫一眼分不出来 */
+  --split-cancel: #1d9bf0;
+  --split-cancel-hover: #1a8cd8;
+  --split-cancel-soft: rgba(29, 155, 240, 0.12);
+
+  /* 分裂出的圆形聊天按钮表面色：亮色就是白圆，暗色换成抬升面，别在暗底上戳一个白洞 */
+  --split-chat-bg: #ffffff;
+  --split-chat-bg-hover: #eef1f3;
+
+  /* ---------- 表面与文本（亮色）---------- */
+  --bg: #ffffff;
+  --bg-elevated: #f7f9f9;
+  --bg-hover: rgba(15, 20, 25, 0.03);
+  --bg-active: rgba(15, 20, 25, 0.06);
+  --bg-mask: rgba(0, 0, 0, 0.4);
+  --bg-frost: rgba(255, 255, 255, 0.85);
+
+  --text-primary: #0f1419;
+  --text-secondary: #536471;
+  --text-tertiary: #8b98a5;
+  --text-inverse: #ffffff;
+
+  --border: #eff3f4;
+  --border-strong: #cfd9de;
+
+  --skeleton: #eff3f4;
+  --skeleton-sheen: rgba(255, 255, 255, 0.6);
+
+  /* ---------- 尺寸 ---------- */
+  /* 三列总宽 275 + 600 + 350 = 1225；整页铺满窗口，不设整体最大宽度 */
+  --rail-expanded: 275px;
+  --rail-medium: 240px;
+  --rail-collapsed: 88px;
+  --col-main: 600px;
+  --col-aside: 350px;
+  --rail-gap: 0px;
+
+  --card-pad-x: 16px;
+  --card-pad-y: 12px;
+  --avatar-list: 40px;
+  --avatar-detail: 48px;
+  --avatar-profile: 80px;
+  --avatar-col: 52px;
+
+  --header-h: 53px;
+  --tabbar-h: 57px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-media: 16px;
+  --radius-pill: 9999px;
+
+  /* ---------- 层级 ---------- */
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-dropdown: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+
+  /* ---------- 动效 ---------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+
+  /* ---------- 字体 ---------- */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+
+  /* ---------- 字号缩放（调至最大不截断）---------- */
+  --font-scale: 1;
+  --font-xs: calc(0.8125rem * var(--font-scale)); /* 13px */
+  --font-sm: calc(0.875rem * var(--font-scale)); /* 14px */
+  --font-base: calc(0.9375rem * var(--font-scale)); /* 15px */
+  --font-md: calc(1rem * var(--font-scale)); /* 16px */
+  --font-lg: calc(1.0625rem * var(--font-scale)); /* 17px */
+  --font-xl: calc(1.25rem * var(--font-scale)); /* 20px */
+  --font-2xl: calc(1.5rem * var(--font-scale)); /* 24px */
+
+  --leading-tight: 1.33;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+}
+
+/* ==========================================================================
+   暗色主题（跟随系统 / 常亮 / 常暗）
+   ========================================================================== */
+
+[data-theme='dark'] {
+  --accent: #ff8567;
+  --accent-hover: #ff9d85;
+  --accent-soft: rgba(255, 133, 103, 0.15);
+
+  --like: #f91880;
+  --like-soft: rgba(249, 24, 128, 0.15);
+  --repost: #00ba7c;
+  --repost-soft: rgba(0, 186, 124, 0.15);
+  --danger: #f4212e;
+  --danger-soft: rgba(244, 33, 46, 0.15);
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.16);
+  --success: #00ba7c;
+  --success-soft: rgba(0, 186, 124, 0.15);
+
+  /* 暗底上把蓝提亮一档，保证实心按钮与白字仍有足够对比 */
+  --split-cancel: #2fa8f5;
+  --split-cancel-hover: #4db6f7;
+  --split-cancel-soft: rgba(47, 168, 245, 0.18);
+
+  /* 暗色不出现白圆：用抬升面，靠描边和图标保持可辨 */
+  --split-chat-bg: #17191d;
+  --split-chat-bg-hover: #23262b;
+
+  --bg: #0a0a0a;
+  --bg-elevated: #16181c;
+  --bg-hover: rgba(255, 255, 255, 0.03);
+  --bg-active: rgba(255, 255, 255, 0.06);
+  --bg-mask: rgba(0, 0, 0, 0.66);
+  --bg-frost: rgba(10, 10, 10, 0.85);
+
+  --text-primary: #e7e9ea;
+  --text-secondary: #71767b;
+  --text-tertiary: #565a5f;
+  --text-inverse: #0a0a0a;
+
+  --border: #2f3336;
+  --border-strong: #3e4144;
+
+  --skeleton: #16181c;
+  --skeleton-sheen: rgba(255, 255, 255, 0.05);
+}
+
+/* ==========================================================================
+   重置与基础
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-base);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out);
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+img,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- 全局滚动条（细、低调）---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
+}
+
+/* ---------- 无障碍：尊重减少动效偏好 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- 工具类 ---------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skeleton-shimmer {
+  background: var(--skeleton);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--skeleton-sheen),
+    transparent
+  );
+  animation: skeleton-sweep 1.4s infinite;
+}
+
+@keyframes skeleton-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}

@@ -1,0 +1,212 @@
+/* ==========================================================================
+   AppShell：三栏响应式布局骨架
+
+   每一档都要真实容得下「左导航 + 主列 600 + 右栏 350」，
+   否则右栏会把主列挤爆 → 居中布局把溢出量推向两侧 → 压住左导航。
+   xl  >=1280 : 275 + 600 + 350 = 1225
+   中 1190+  : 240 + 600 + 350 = 1190
+   小 1050+  : 88（图标）+ 600 + 350 = 1038
+   md 600+   : 88（图标）+ 主列
+   sm  <600  : 主列 + 底部 Tab
+   ========================================================================== */
+
+.shell {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.shell__inner {
+  display: flex;
+  width: 100%;
+  /* 铺满窗口宽度：左导航贴最左、右栏贴最右，整体不设最大宽度封顶。 */
+  max-width: none;
+  /* 显式声明：不依赖 flex 默认值，避免左导航被顶到中间 */
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+/* ---------- 铺满时的水平分配（用 auto 外边距，不用 space-between）----------
+   目标：左导航贴左、右栏贴右、主列居中于「可用空间」。
+   ------------------------------------------------------------------------- */
+.shell__rail {
+  margin-right: auto;
+}
+
+.shell__main {
+  margin-right: auto;
+}
+
+/* 覆盖必须与「右栏真正可见」的断点完全一致（见下方 1050 的媒体查询）。
+   否则在 <1050 时右栏只是 display:none —— 它仍带着 withAside 类，
+   而 display:none 的子元素不产生盒子、它的 margin-left:auto 也就无从生效，
+   于是 rail 的 auto 右边距会吃掉全部剩余空间，把主列顶到窗口最右边。 */
+@media (min-width: 1050px) {
+  .shell__inner--withAside .shell__main {
+    margin-right: 0;
+  }
+
+  .shell__inner--withAside .shell__aside {
+    margin-left: auto;
+  }
+}
+
+/* ---------- 左导航（rail）---------- */
+.shell__rail {
+  /* 定位元素各自建立层叠上下文。给导航单独抬一层，避免主列里
+     position:sticky + z-index 的吸顶头部在极端情况下盖到导航上。 */
+  position: sticky;
+  z-index: 2;
+  flex: 0 0 var(--rail-expanded);
+  width: var(--rail-expanded);
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg);
+  border-right: 1px solid transparent;
+}
+
+/* ---------- 主列 ---------- */
+.shell__main {
+  flex: 0 1 var(--col-main);
+  width: 100%;
+  max-width: var(--col-main);
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ---------- 右栏 ---------- */
+.shell__aside {
+  flex: 0 0 var(--col-aside);
+  width: var(--col-aside);
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: 8px 16px 24px;
+  /* 默认隐藏；≥1050 显示（见文末断点）。 */
+  display: none;
+}
+
+/* ---------- 底部 Tab（窄屏）---------- */
+.shell__tabbar {
+  display: none;
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: var(--z-nav);
+  background: var(--bg-frost);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---------- 悬浮发帖按钮（窄屏）---------- */
+.shell__fab {
+  display: none;
+  position: fixed;
+  right: 16px;
+  bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
+  z-index: var(--z-nav);
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  transition: transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.shell__fab:hover {
+  background: var(--accent-hover);
+}
+
+.shell__fab:active {
+  transform: scale(0.94);
+}
+
+/* ==========================================================================
+   断点适配
+   ========================================================================== */
+
+/* xl ≥1280：275 + 600 + 350 = 1225，三列铺满窗口 */
+@media (min-width: 1280px) {
+  .shell__aside {
+    display: block;
+  }
+}
+
+/* 1190–1279：导航降为中号 240，仍显示标签；240 + 600 + 350 = 1190 */
+@media (min-width: 1190px) and (max-width: 1279px) {
+  .shell__rail {
+    flex: 0 0 var(--rail-medium);
+    width: var(--rail-medium);
+  }
+  .shell__aside {
+    display: block;
+  }
+}
+
+/* 1050–1189：导航收成图标条 88；88 + 600 + 350 = 1038 */
+@media (min-width: 1050px) and (max-width: 1189px) {
+  .shell__rail {
+    flex: 0 0 var(--rail-collapsed);
+    width: var(--rail-collapsed);
+    align-items: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .shell__main {
+    border-left: none;
+  }
+  .shell__aside {
+    display: block;
+  }
+}
+
+/* <1050：已放不下右栏，隐藏之；导航保持图标条 */
+@media (max-width: 1049px) {
+  .shell__rail {
+    flex: 0 0 var(--rail-collapsed);
+    width: var(--rail-collapsed);
+    align-items: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .shell__main {
+    border-left: none;
+  }
+}
+
+/* sm <600：单列 + 底部 Tab */
+@media (max-width: 599px) {
+  .shell__rail {
+    display: none;
+  }
+  .shell__main {
+    max-width: 100%;
+    border-right: none;
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  }
+  .shell__tabbar {
+    display: block;
+  }
+  .shell__fab {
+    display: flex;
+  }
+}

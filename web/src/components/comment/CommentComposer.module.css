@@ -1,0 +1,166 @@
+/* ==========================================================================
+   CommentComposer：评论输入框（吸底）
+   吸底、随键盘浮起（移动端用 sticky + env(safe-area-inset-bottom)）
+   ========================================================================== */
+
+.composer {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-nav);
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 10px var(--card-pad-x);
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.composer__avatar {
+  flex: 0 0 var(--avatar-list);
+  width: var(--avatar-list);
+  height: var(--avatar-list);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.composer__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.composer__field {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 7px 8px 7px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  transition: border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.composer__field:focus-within {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+.composer__textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 160px;
+  border: none;
+  outline: none;
+  background: transparent;
+  resize: none;
+  font-size: var(--font-base);
+  line-height: 1.5;
+  padding: 4px 0;
+  overflow-y: auto;
+}
+
+.composer__textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.composer__tools {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 0 0 auto;
+}
+
+.composer__tool {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.composer__tool:hover {
+  background: var(--accent-soft);
+}
+
+/* 回复某人时的提示条 */
+.composer__replying {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px var(--card-pad-x);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  position: sticky;
+  bottom: 72px;
+  z-index: var(--z-nav);
+}
+
+.composer__replyingName {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.composer__replyingClose {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+}
+
+.composer__replyingClose:hover {
+  background: var(--bg-hover);
+}
+
+/* ---------- 发送按钮（有内容时出现）---------- */
+.composer__send {
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  transition: background-color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+.composer__send:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.composer__send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 字数超限提示 */
+.composer__counter {
+  flex: 0 0 auto;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  padding-bottom: 2px;
+}
+
+.composer__counter--warn {
+  color: var(--warning);
+}
+
+.composer__counter--over {
+  color: var(--danger);
+}

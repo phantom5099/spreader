@@ -1,0 +1,137 @@
+/* ==========================================================================
+   FeedStates：列表尾部 / 错误 / 空 的各类状态
+   ========================================================================== */
+
+/* ---------- 加载更多（尾随 spinner）---------- */
+.tail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 22px 16px;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  animation: feed-spin 0.8s linear infinite;
+}
+
+@keyframes feed-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- 到底 ---------- */
+.end {
+  padding: 32px 24px 40px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.end__mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------- 错误 ---------- */
+.error {
+  margin: 16px;
+  padding: 20px 20px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  text-align: center;
+}
+
+.error__title {
+  font-weight: 700;
+  font-size: var(--font-base);
+  margin-bottom: 4px;
+}
+
+.error__desc {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  margin-bottom: 14px;
+}
+
+.error__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+/* ---------- 按钮 ---------- */
+.btn {
+  height: 36px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  display: inline-grid;
+  place-items: center;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn--primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn--ghost {
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+}
+
+.btn--ghost:hover {
+  background: var(--bg-hover);
+}
+
+/* ---------- 空列表 ---------- */
+.empty {
+  padding: 64px 32px;
+  text-align: center;
+}
+
+.empty__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.empty__title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.empty__desc {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  max-width: 320px;
+  margin: 0 auto 18px;
+  line-height: var(--leading-relaxed);
+}

@@ -1,0 +1,66 @@
+/* ==========================================================================
+   ProfileTabs：个人主页三 Tab（吸顶，下划线指示器）
+   ========================================================================== */
+
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-frost);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 48px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+
+.tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tab--active {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* 下划线指示器 */
+.tab--active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 56px;
+  height: 3px;
+  margin-left: -28px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.tab__label {
+  line-height: 1;
+}
+
+.tab__count {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-active);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  line-height: 1.4;
+}

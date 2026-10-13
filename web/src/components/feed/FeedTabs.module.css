@@ -1,0 +1,52 @@
+/* ==========================================================================
+   FeedTabs：吸顶 Tab 栏（推荐 / 关注）
+   sticky top 0，53px 高，毛玻璃底，当前项珊瑚橙下划线
+   ========================================================================== */
+
+.ftabs {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: stretch;
+  height: var(--header-h);
+  background: var(--bg-frost);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.ftabs__tab {
+  flex: 1 1 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+  font-weight: 500;
+  transition: color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.ftabs__tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ftabs__tab--active {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* 当前项下划线：宽度 56px，居中，圆角 */
+.ftabs__tab--active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
