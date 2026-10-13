@@ -90,7 +90,11 @@
 
 /* ---------- 趋势列表 ---------- */
 .trend {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 12px;
+  row-gap: 2px;
   width: 100%;
   text-align: left;
   padding: 10px 16px;
@@ -102,15 +106,19 @@
 }
 
 .trend__meta {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: var(--font-xs);
   color: var(--text-secondary);
-  margin-bottom: 2px;
 }
 
 .trend__topic {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 700;
   font-size: var(--font-base);
   color: var(--text-primary);
@@ -120,7 +128,7 @@
 .trend__count {
   font-size: var(--font-xs);
   color: var(--text-secondary);
-  margin-top: 2px;
+  white-space: nowrap;
 }
 
 .card__more {

@@ -72,7 +72,9 @@ export function Aside() {
               {i === 0 ? <TrendingUp size={13} strokeWidth={2.2} aria-hidden /> : null}
               {t.category || '趋势'} · 趋势
             </span>
-            <span className={styles.trend__topic}>{t.topic}</span>
+            <span className={styles.trend__topic} title={t.topic}>
+              {t.topic}
+            </span>
             <span className={styles.trend__count}>{formatCount(t.post_count)} 条动态</span>
           </button>
         ))}
