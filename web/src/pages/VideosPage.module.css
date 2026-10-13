@@ -289,10 +289,6 @@
   color: var(--like);
 }
 
-.action--reposted {
-  color: var(--repost);
-}
-
 .action--bookmarked {
   color: var(--accent);
 }

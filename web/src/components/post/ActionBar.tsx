@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import {
   MessageCircle,
-  Repeat2,
+  Share2,
   Heart,
   Bookmark,
   BarChart2,
@@ -17,7 +17,7 @@ interface ActionBarProps {
   compact?: boolean;
   /** 各动作回调；不传则该项不可交互（但仍展示计数） */
   onReply?: () => void;
-  onRepost?: () => void;
+  onShare?: () => void;
   onLike?: () => void;
   onBookmark?: () => void;
   /** 是否显示浏览量（详情页显示，某些场景可隐藏） */
@@ -34,7 +34,7 @@ export const ActionBar = memo(function ActionBar({
   viewer,
   compact = false,
   onReply,
-  onRepost,
+  onShare,
   onLike,
   onBookmark,
   showView = true,
@@ -64,16 +64,14 @@ export const ActionBar = memo(function ActionBar({
       {!compact && (
         <button
           type="button"
-          className={cls(styles['action--repost'], viewer.reposted)}
-          aria-label={viewer.reposted ? '取消转推' : '转推'}
-          aria-pressed={viewer.reposted}
-          onClick={stop(onRepost)}
-          disabled={!onRepost}
+          className={cls(styles['action--share'])}
+          aria-label="分享"
+          onClick={stop(onShare)}
+          disabled={!onShare}
         >
           <span className={styles.action__hit}>
-            <Repeat2 size={18.75} strokeWidth={1.75} className={styles.icon} aria-hidden />
+            <Share2 size={18.75} strokeWidth={1.75} className={styles.icon} aria-hidden />
           </span>
-          <span className={styles.action__count}>{formatCount(counters.repost)}</span>
         </button>
       )}
 

@@ -199,7 +199,10 @@
 
 .status {
   display: inline-flex;
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .status--read {

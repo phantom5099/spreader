@@ -4,7 +4,6 @@ import {
   Ban,
   BellOff,
   MessageCircle,
-  Repeat2,
   Heart,
   Bookmark,
   Share,
@@ -26,7 +25,8 @@ import { PostCardSkeleton } from '@/components/post/PostCardSkeleton';
 import { CommentItem, type CommentView } from '@/components/comment/CommentItem';
 import { CommentComposer } from '@/components/comment/CommentComposer';
 import { formatAbsoluteTime, formatCount } from '@/utils/format';
-import { fetchComments, fetchItem, postComment } from '@/mocks/api';
+import { sharePostLink } from '@/utils/share';
+import { deleteCommentApi, fetchComments, fetchItem, postComment } from '@/mocks/api';
 import type { FeedItem } from '@/types/feed';
 import styles from './PostDetailPage.module.css';
 
@@ -45,10 +45,8 @@ export function PostDetailPage() {
   const [sort, setSort] = useState<SortMode>('relevant');
 
   const [liked, setLiked] = useState(false);
-  const [reposted, setReposted] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
-  const [repostCount, setRepostCount] = useState(0);
 
   const [following, setFollowing] = useState(true);
   const [revealed, setRevealed] = useState(false);
@@ -74,10 +72,8 @@ export function PostDetailPage() {
       }
       setItem(data);
       setLiked(data.viewer.liked);
-      setReposted(data.viewer.reposted);
       setBookmarked(data.viewer.bookmarked);
       setLikeCount(data.counters.like);
-      setRepostCount(data.counters.repost);
       setLoading(false);
     });
 
@@ -117,20 +113,27 @@ export function PostDetailPage() {
     });
   }, []);
 
-  const toggleRepost = useCallback(() => {
-    setReposted((prev) => {
-      setRepostCount((c) => c + (prev ? -1 : 1));
-      setToast(prev ? '已取消转推' : '已转推');
-      return !prev;
-    });
-  }, []);
-
   const toggleBookmark = useCallback(() => {
     setBookmarked((prev) => {
       setToast(prev ? '已取消收藏' : '已加入收藏');
       return !prev;
     });
   }, []);
+
+  /** 删除评论：本地先移除，接口负责把它从"服务端"也删掉 */
+  const deleteComment = useCallback(
+    (target: CommentView) => {
+      const drop = (list: CommentView[]): CommentView[] =>
+        list
+          .filter((c) => c.comment_id !== target.comment_id)
+          .map((c) => (c.replies?.length ? { ...c, replies: drop(c.replies) } : c));
+      setComments((prev) => drop(prev));
+      void deleteCommentApi(target.comment_id)
+        .then(() => setToast('评论已删除'))
+        .catch(() => setToast('删除失败，请重试'));
+    },
+    [],
+  );
 
   const likeComment = useCallback((target: CommentView) => {
     const patch = (list: CommentView[]): CommentView[] =>
@@ -318,27 +321,12 @@ export function PostDetailPage() {
               <span>次查看</span>
               <Eye size={14} strokeWidth={2} aria-hidden />
             </div>
-            <button
-              type="button"
-              className={styles.meta__copy}
-              onClick={() => {
-                void navigator.clipboard
-                  ?.writeText(`${location.origin}/post/${item.content_id}`)
-                  .then(() => setToast('链接已复制'))
-                  .catch(() => setToast('复制失败'));
-              }}
-            >
-              复制动态链接
-            </button>
           </div>
 
           {/* ---------- 数据摘要行 ---------- */}
           <div className={styles.summary}>
             <span className={styles.summary__item}>
               <span className={styles.summary__num}>{formatCount(item.counters.reply)}</span> 回复
-            </span>
-            <span className={styles.summary__item}>
-              <span className={styles.summary__num}>{formatCount(repostCount)}</span> 转推
             </span>
             <span className={styles.summary__item}>
               <span className={styles.summary__num}>{formatCount(likeCount)}</span> 赞
@@ -349,14 +337,12 @@ export function PostDetailPage() {
           <div className={styles.actions}>
             <DetailActions
               liked={liked}
-              reposted={reposted}
               bookmarked={bookmarked}
-              counts={{ reply: item.counters.reply, repost: repostCount, like: likeCount }}
+              counts={{ reply: item.counters.reply, like: likeCount }}
               onReply={() => setReplyingTo({ handle: item.author.handle, name: item.author.nickname })}
-              onRepost={toggleRepost}
               onLike={toggleLike}
               onBookmark={toggleBookmark}
-              onShare={() => setToast('分享面板（Demo 未实现）')}
+              onShare={() => sharePostLink(item.content_id)}
             />
           </div>
 
@@ -400,6 +386,8 @@ export function PostDetailPage() {
                 key={c.comment_id}
                 comment={c}
                 onLike={likeComment}
+                onShare={() => sharePostLink(contentId)}
+                onDelete={deleteComment}
                 onReply={(target) =>
                   setReplyingTo({ handle: target.author.handle, name: target.author.nickname })
                 }
@@ -467,19 +455,8 @@ export function PostDetailPage() {
       <Modal open={moreOpen} onClose={() => setMoreOpen(false)} size="sm" title="更多操作">
         <div className={styles.more}>
           <MoreItem
-            icon={Share}
-            label="复制动态链接"
-            onClick={() => {
-              void navigator.clipboard
-                ?.writeText(`${location.origin}/post/${item.content_id}`)
-                .then(() => setToast('链接已复制'))
-                .catch(() => setToast('复制失败'));
-              setMoreOpen(false);
-            }}
-          />
-          <MoreItem
             icon={Quote}
-            label="引用转发"
+            label="引用这条动态"
             onClick={() => {
               setMoreOpen(false);
               navigate(`/compose/quote/${item.content_id}`);
@@ -556,21 +533,17 @@ function MoreItem({
 
 function DetailActions({
   liked,
-  reposted,
   bookmarked,
   counts,
   onReply,
-  onRepost,
   onLike,
   onBookmark,
   onShare,
 }: {
   liked: boolean;
-  reposted: boolean;
   bookmarked: boolean;
-  counts: { reply: number; repost: number; like: number };
+  counts: { reply: number; like: number };
   onReply: () => void;
-  onRepost: () => void;
   onLike: () => void;
   onBookmark: () => void;
   onShare: () => void;
@@ -583,14 +556,6 @@ function DetailActions({
       count: counts.reply,
       active: false,
       onClick: onReply,
-    },
-    {
-      key: 'repost',
-      icon: <Repeat2 size={19} strokeWidth={1.75} aria-hidden />,
-      label: '转推',
-      count: counts.repost,
-      active: reposted,
-      onClick: onRepost,
     },
     {
       key: 'like',
@@ -637,9 +602,7 @@ function DetailActions({
             color: it.active
               ? it.key === 'like'
                 ? 'var(--like)'
-                : it.key === 'repost'
-                  ? 'var(--repost)'
-                  : 'var(--accent)'
+                : 'var(--accent)'
               : 'var(--text-secondary)',
             fontSize: 'var(--font-sm)',
             transition: 'color 120ms',

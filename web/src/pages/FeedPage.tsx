@@ -6,6 +6,7 @@ import { Aside } from '@/components/layout/Aside';
 import { FeedTabs } from '@/components/feed/FeedTabs';
 import { NewContentBanner } from '@/components/feed/NewContentBanner';
 import { PostCard } from '@/components/post/PostCard';
+import { PostMenu } from '@/components/post/PostMenu';
 import { PostCardSkeleton } from '@/components/post/PostCardSkeleton';
 import {
   FeedEmpty,
@@ -15,6 +16,8 @@ import {
 } from '@/components/feed/FeedStates';
 import { useFeedStore } from '@/stores/feedStore';
 import { fetchFeed } from '@/mocks/api';
+import { CURRENT_USER } from '@/mocks/currentUser';
+import { sharePostLink } from '@/utils/share';
 import type { FeedItem, FeedTab } from '@/types/feed';
 import styles from './FeedPage.module.css';
 
@@ -39,12 +42,16 @@ export function FeedPage() {
   const loadMore = useFeedStore((s) => s.loadMore);
   const retry = useFeedStore((s) => s.retry);
   const toggleLike = useFeedStore((s) => s.toggleLike);
-  const toggleRepost = useFeedStore((s) => s.toggleRepost);
   const toggleBookmark = useFeedStore((s) => s.toggleBookmark);
   const removeItem = useFeedStore((s) => s.removeItem);
+  const updateItem = useFeedStore((s) => s.updateItem);
 
   const [newItems, setNewItems] = useState<FeedItem[]>([]);
   const [showNote, setShowNote] = useState(true);
+  /** 「更多」菜单：锚点 + 目标动态 */
+  const [menu, setMenu] = useState<{ item: FeedItem; point: { x: number; y: number } } | null>(
+    null,
+  );
   const scrolledRef = useRef(false);
 
   /* -------------------- 首次进入拉取 -------------------- */
@@ -200,7 +207,7 @@ export function FeedPage() {
               <div className={styles.devNote}>
                 <span className={styles.devNote__badge}>DEMO</span>
                 <span style={{ flex: '1 1 auto' }}>
-                  静态演示：数据为本地 mock，交互（点赞/转推/收藏）会模拟 10% 失败以验证回滚。
+                  静态演示：数据为本地 mock，交互（点赞/收藏/分享）会模拟 10% 失败以验证回滚。
                 </span>
                 <button
                   type="button"
@@ -236,10 +243,10 @@ export function FeedPage() {
                   item={item}
                   allowAutoplay
                   onLike={() => toggleLike(item.content_id)}
-                  onRepost={() => toggleRepost(item.content_id)}
+                  onShare={() => sharePostLink(item.content_id)}
                   onBookmark={() => toggleBookmark(item.content_id)}
                   onReply={() => navigate(`/post/${item.content_id}`)}
-                  onMore={() => removeItem(item.content_id)}
+                  onMore={(target, point) => setMenu({ item: target, point })}
                 />
               ))}
 
@@ -274,6 +281,16 @@ export function FeedPage() {
           </footer>
         </div>
       </div>
+
+      {/* ---------- 动态操作菜单（卡片右上 ⋯）---------- */}
+      <PostMenu
+        point={menu?.point ?? null}
+        item={menu?.item ?? null}
+        mine={menu?.item.author.handle === CURRENT_USER.handle}
+        onClose={() => setMenu(null)}
+        onUpdated={updateItem}
+        onRemoved={(target) => removeItem(target.content_id)}
+      />
     </AppShell>
   );
 }

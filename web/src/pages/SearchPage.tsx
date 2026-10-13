@@ -9,14 +9,16 @@ import {
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PostCard } from '@/components/post/PostCard';
+import { PostMenu } from '@/components/post/PostMenu';
 import { UserRow } from '@/components/profile/UserRow';
 import { Highlight } from '@/components/search/Highlight';
-import { toast } from '@/stores/toastStore';
 import { useFeedStore } from '@/stores/feedStore';
 import { useSearchHistoryStore } from '@/stores/searchHistoryStore';
 import { ALL_FEED_ITEMS, TRENDS } from '@/mocks/feed';
 import { ALL_PROFILES } from '@/mocks/users';
+import { CURRENT_USER } from '@/mocks/currentUser';
 import { formatCount } from '@/utils/format';
+import { sharePostLink } from '@/utils/share';
 import type { FeedItem } from '@/types/feed';
 import styles from './SearchPage.module.css';
 
@@ -44,9 +46,15 @@ export function SearchPage() {
 
   /* 信息流里的互动方法复用（搜索结果里的卡片同样可点赞） */
   const toggleLike = useFeedStore((s) => s.toggleLike);
-  const toggleRepost = useFeedStore((s) => s.toggleRepost);
   const toggleBookmark = useFeedStore((s) => s.toggleBookmark);
   const feedItems = useFeedStore((s) => s.items);
+
+  /** 本页可见性覆盖（删除 / 不感兴趣只影响搜索结果列表）与「编辑后重新取数」的版本号 */
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [dataVersion, setDataVersion] = useState(0);
+  const [menu, setMenu] = useState<{ item: FeedItem; point: { x: number; y: number } } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!initialQ) inputRef.current?.focus();
@@ -93,9 +101,11 @@ export function SearchPage() {
     const hit = pool.filter(
       (i) => i.text.toLowerCase().includes(lower) || i.author.nickname.toLowerCase().includes(lower),
     );
-    if (hit.length > 0) return hit.slice(0, 20);
-    return ALL_FEED_ITEMS.slice(0, 6);
-  }, [q, lower, feedItems]);
+    const visible = (list: FeedItem[]) => list.filter((i) => !hidden.has(i.content_id));
+    if (hit.length > 0) return visible(hit).slice(0, 20);
+    return visible(ALL_FEED_ITEMS).slice(0, 6);
+    /* dataVersion：编辑/删除在 mock 层完成后靠它重新取数 */
+  }, [q, lower, feedItems, hidden, dataVersion]);
 
   const topicResults = useMemo(() => {
     if (!q) return [];
@@ -345,10 +355,10 @@ export function SearchPage() {
                         key={item.content_id}
                         item={item}
                         onLike={() => toggleLike(item.content_id)}
-                        onRepost={() => toggleRepost(item.content_id)}
+                        onShare={() => sharePostLink(item.content_id)}
                         onBookmark={() => toggleBookmark(item.content_id)}
                         onReply={() => navigate(`/post/${item.content_id}`)}
-                        onMore={() => toast.show('更多操作（Demo 未实现）')}
+                        onMore={(target, point) => setMenu({ item: target, point })}
                       />
                     ))
                   )}
@@ -399,6 +409,19 @@ export function SearchPage() {
           <div className={styles.tail} />
         </div>
       </div>
+
+      {/* ---------- 动态操作菜单 ---------- */}
+      <PostMenu
+        point={menu?.point ?? null}
+        item={menu?.item ?? null}
+        mine={menu?.item.author.handle === CURRENT_USER.handle}
+        onClose={() => setMenu(null)}
+        onUpdated={() => setDataVersion((v) => v + 1)}
+        onRemoved={(target) => {
+          setHidden((prev) => new Set(prev).add(target.content_id));
+          setDataVersion((v) => v + 1);
+        }}
+      />
     </AppShell>
   );
 }

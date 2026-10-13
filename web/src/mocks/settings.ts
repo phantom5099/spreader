@@ -56,3 +56,46 @@ export const MY_TAGS = [
   '城市漫步', '播客', '读书笔记', '远程办公', '字体设计',
   '开源', '效率工具', '深夜emo', '爬山', '胶片',
 ];
+
+/* -------------------------------------------------------------------------- */
+/*  播放偏好                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 播放偏好：循环播放、自动播放。
+ * 与主题一样属于「本机偏好」，Demo 存在 localStorage；
+ * 真实后端接入时改由「读取设置 / 更新设置」接口下发，接口形状不变。
+ */
+export interface PlaybackPrefs {
+  /** 短视频循环播放：开启时单条播完回到开头，关闭时自动切下一条 */
+  video_loop: boolean;
+  /** 信息流内视频自动播放 */
+  autoplay: boolean;
+}
+
+const PLAYBACK_KEY = 'spreader.playback.v1';
+
+/** 默认行为：循环播放开启，自动播放开启 */
+export const PLAYBACK_DEFAULTS: PlaybackPrefs = {
+  video_loop: true,
+  autoplay: true,
+};
+
+export function readPlaybackPrefs(): PlaybackPrefs {
+  try {
+    const raw = localStorage.getItem(PLAYBACK_KEY);
+    if (!raw) return { ...PLAYBACK_DEFAULTS };
+    return { ...PLAYBACK_DEFAULTS, ...(JSON.parse(raw) as Partial<PlaybackPrefs>) };
+  } catch {
+    /* 隐私模式 / 脏数据：回落到默认值 */
+    return { ...PLAYBACK_DEFAULTS };
+  }
+}
+
+export function writePlaybackPrefs(prefs: PlaybackPrefs): void {
+  try {
+    localStorage.setItem(PLAYBACK_KEY, JSON.stringify(prefs));
+  } catch {
+    /* 隐私模式下静默失败 */
+  }
+}

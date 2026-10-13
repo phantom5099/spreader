@@ -9,26 +9,28 @@ import {
   Ban,
   Share,
   BellOff,
-  Copy,
-  Trash2,
-  LogOut,
+  Flag,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Aside } from '@/components/layout/Aside';
 import { PageHeader, headerStyles } from '@/components/layout/PageHeader';
 import { PostCard } from '@/components/post/PostCard';
+import { PostMenu } from '@/components/post/PostMenu';
 import { PostCardSkeleton } from '@/components/post/PostCardSkeleton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Modal } from '@/components/common/Modal';
+import { ReportModal } from '@/components/report/ReportModal';
 import { EditProfileModal } from '@/components/profile/EditProfileModal';
 import { FollowButton } from '@/components/profile/FollowButton';
 import { ProfileTabs } from '@/components/profile/ProfileTabs';
 import { ProfileEmpty } from '@/components/profile/ProfileStates';
 import { toast } from '@/stores/toastStore';
 import { useFeedStore } from '@/stores/feedStore';
-import { useAuthStore } from '@/stores/authStore';
+import { useConversationStore } from '@/stores/conversationStore';
 import { fetchProfile, type ProfileBundle } from '@/mocks/api';
+import { CURRENT_USER } from '@/mocks/currentUser';
 import { formatCount } from '@/utils/format';
+import { sharePostLink } from '@/utils/share';
 import type { FeedItem } from '@/types/feed';
 import type { ProfileTab } from '@/types/user';
 import styles from './ProfilePage.module.css';
@@ -42,7 +44,6 @@ export function ProfilePage() {
   const { handle = '' } = useParams();
   const navigate = useNavigate();
   const routerLocation = useLocation();
-  const signOut = useAuthStore((s) => s.signOut);
 
   const [bundle, setBundle] = useState<ProfileBundle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,9 +53,14 @@ export function ProfilePage() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
+  /** 他人主页的「更多操作」弹窗；自己的主页没有这个入口 */
   const [moreOpen, setMoreOpen] = useState(false);
-  const [logoutOpen, setLogoutOpen] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  /** 单条动态的「更多」菜单 */
+  const [postMenu, setPostMenu] = useState<{ item: FeedItem; point: { x: number; y: number } } | null>(
+    null,
+  );
+  const [reportOpen, setReportOpen] = useState(false);
 
   const topRef = useRef<HTMLDivElement | null>(null);
 
@@ -87,9 +93,17 @@ export function ProfilePage() {
     setFollowing(next);
   }, []);
 
+  /* 关注后才出现的聊天圆钮：没有现成会话就现开一条，和关注列表里的行为一致 */
+  const startDirect = useConversationStore((s) => s.startDirect);
+  const openChat = useCallback(
+    (user: { nickname: string; handle: string; avatar_url: string }) => {
+      navigate(`/messages/${startDirect(user)}`);
+    },
+    [navigate, startDirect],
+  );
+
   /* -------------------- 本地互动（复用 feedStore 的乐观更新语义）-------------------- */
   const toggleLike = useFeedStore((s) => s.toggleLike);
-  const toggleRepost = useFeedStore((s) => s.toggleRepost);
   const toggleBookmark = useFeedStore((s) => s.toggleBookmark);
 
   /** 个人主页的列表是快照，互动需就地改本地数组 */
@@ -125,22 +139,6 @@ export function ProfilePage() {
     [patchLocal, toggleLike],
   );
 
-  const repostItem = useCallback(
-    (item: FeedItem) => {
-      toggleRepost(item.content_id);
-      patchLocal(item.content_id, (it) => ({
-        ...it,
-        viewer: { ...it.viewer, reposted: !it.viewer.reposted },
-        counters: {
-          ...it.counters,
-          repost: it.counters.repost + (it.viewer.reposted ? -1 : 1),
-        },
-      }));
-      toast.show(item.viewer.reposted ? '已取消转推' : '已转推');
-    },
-    [patchLocal, toggleRepost],
-  );
-
   const bookmarkItem = useCallback(
     (item: FeedItem) => {
       toggleBookmark(item.content_id);
@@ -152,6 +150,25 @@ export function ProfilePage() {
     },
     [patchLocal, toggleBookmark],
   );
+
+  /** 移除一条（删除动态 / 不感兴趣） */
+  const dropLocal = useCallback((contentId: string) => {
+    setBundle((prev) => {
+      if (!prev) return prev;
+      const drop = (list: FeedItem[]) => list.filter((it) => it.content_id !== contentId);
+      return { ...prev, posts: drop(prev.posts), media: drop(prev.media), likes: drop(prev.likes) };
+    });
+  }, []);
+
+  /** 编辑后替换本地快照里的那一条 */
+  const replaceLocal = useCallback((next: FeedItem) => {
+    setBundle((prev) => {
+      if (!prev) return prev;
+      const swap = (list: FeedItem[]) =>
+        list.map((it) => (it.content_id === next.content_id ? next : it));
+      return { ...prev, posts: swap(prev.posts), media: swap(prev.media), likes: swap(prev.likes) };
+    });
+  }, []);
 
   const shareProfile = useCallback(() => {
     void navigator.clipboard
@@ -279,26 +296,24 @@ export function ProfilePage() {
           {/* ---------- 资料区 ---------- */}
           <section className={styles.head}>
             <div className={styles.head__avatarRow}>
-              <button
-                type="button"
-                className={styles.head__avatar}
-                aria-label="更换头像"
-                onClick={() => {
-                  if (isSelf) setEditOpen(true);
-                }}
-              >
+              {/* 头像不再作为入口：本人用右侧「编辑资料」，他人也没有可跳转的目标 */}
+              <span className={styles.head__avatar}>
                 <img src={profile.avatar_url} alt="" />
-              </button>
+              </span>
 
               <div className={styles.head__action}>
-                <button
-                  type="button"
-                  className={headerStyles.iconBtn}
-                  aria-label="更多操作"
-                  onClick={() => setMoreOpen(true)}
-                >
-                  <MoreHorizontal size={20} strokeWidth={2} aria-hidden />
-                </button>
+                {/* 自己的主页不放「⋯」：右边已经有「编辑资料」，
+                    再挂一个入口只会让人猜哪个是干嘛的（他人的主页保留，举报在那里） */}
+                {!isSelf ? (
+                  <button
+                    type="button"
+                    className={headerStyles.iconBtn}
+                    aria-label="更多操作"
+                    onClick={() => setMoreOpen(true)}
+                  >
+                    <MoreHorizontal size={20} strokeWidth={2} aria-hidden />
+                  </button>
+                ) : null}
 
                 <FollowButton
                   relation={profile.relation}
@@ -306,6 +321,8 @@ export function ProfilePage() {
                   isSelf={isSelf}
                   onChange={onFollowChange}
                   onEditProfile={() => setEditOpen(true)}
+                  onChat={isSelf ? undefined : () => openChat(profile)}
+                  chatLabel={`给 @${profile.handle} 发消息`}
                 />
               </div>
             </div>
@@ -399,10 +416,10 @@ export function ProfilePage() {
                   item={item}
                   viewerIsAuthor={isSelf}
                   onLike={likeItem}
-                  onRepost={repostItem}
+                  onShare={() => sharePostLink(item.content_id)}
                   onBookmark={bookmarkItem}
                   onReply={() => navigate(`/post/${item.content_id}`)}
-                  onMore={() => setMoreOpen(true)}
+                  onMore={(target, point) => setPostMenu({ item: target, point })}
                 />
               ))
             )}
@@ -421,7 +438,7 @@ export function ProfilePage() {
         }}
       />
 
-      {/* ---------- 更多操作 ---------- */}
+      {/* ---------- 他人主页的更多操作 ---------- */}
       <Modal
         open={moreOpen}
         onClose={() => setMoreOpen(false)}
@@ -434,73 +451,56 @@ export function ProfilePage() {
             type="button"
             className={styles.menuItem}
             onClick={() => {
-              void navigator.clipboard
-                ?.writeText(`${location.origin}/u/${profile.handle}`)
-                .then(() => toast.success('主页链接已复制'))
-                .catch(() => toast.error('复制失败'));
+              toast.show(`已静音 @${profile.handle}，你将不再看到 TA 的动态`);
               setMoreOpen(false);
             }}
           >
-            <Copy size={18} strokeWidth={1.9} aria-hidden />
-            复制主页链接
+            <BellOff size={18} strokeWidth={1.9} aria-hidden />
+            静音 @{profile.handle}
           </button>
 
-          {!isSelf ? (
-            <>
-              <button
-                type="button"
-                className={styles.menuItem}
-                onClick={() => {
-                  toast.show(`已静音 @${profile.handle}，你将不再看到 TA 的动态`);
-                  setMoreOpen(false);
-                }}
-              >
-                <BellOff size={18} strokeWidth={1.9} aria-hidden />
-                静音 @{profile.handle}
-              </button>
+          <button
+            type="button"
+            className={`${styles.menuItem} ${styles['menuItem--danger']}`}
+            onClick={() => {
+              setMoreOpen(false);
+              setReportOpen(true);
+            }}
+          >
+            <Flag size={18} strokeWidth={1.9} aria-hidden />
+            举报 @{profile.handle}
+          </button>
 
-              <button
-                type="button"
-                className={`${styles.menuItem} ${styles['menuItem--danger']}`}
-                onClick={() => {
-                  setMoreOpen(false);
-                  setBlockOpen(true);
-                }}
-              >
-                <Ban size={18} strokeWidth={1.9} aria-hidden />
-                拉黑 @{profile.handle}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className={styles.menuItem}
-                onClick={() => {
-                  setMoreOpen(false);
-                  navigate('/settings/account');
-                }}
-              >
-                <Trash2 size={18} strokeWidth={1.9} aria-hidden />
-                管理我的账号
-              </button>
-
-              {/* 移动端左导航收起时，这里是退出登录唯一稳定的入口 */}
-              <button
-                type="button"
-                className={`${styles.menuItem} ${styles['menuItem--danger']}`}
-                onClick={() => {
-                  setMoreOpen(false);
-                  setLogoutOpen(true);
-                }}
-              >
-                <LogOut size={18} strokeWidth={1.9} aria-hidden />
-                退出登录
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            className={`${styles.menuItem} ${styles['menuItem--danger']}`}
+            onClick={() => {
+              setMoreOpen(false);
+              setBlockOpen(true);
+            }}
+          >
+            <Ban size={18} strokeWidth={1.9} aria-hidden />
+            拉黑 @{profile.handle}
+          </button>
         </div>
       </Modal>
+
+      {/* ---------- 动态的操作菜单（卡片右上 ⋯）---------- */}
+      <PostMenu
+        point={postMenu?.point ?? null}
+        item={postMenu?.item ?? null}
+        mine={postMenu?.item.author.handle === CURRENT_USER.handle}
+        onClose={() => setPostMenu(null)}
+        onUpdated={replaceLocal}
+        onRemoved={(target) => dropLocal(target.content_id)}
+      />
+
+      {/* ---------- 举报主页 ---------- */}
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetLabel={`@${profile.handle} 的主页`}
+      />
 
       {/* ---------- 拉黑二次确认 ---------- */}
       <ConfirmDialog
@@ -519,22 +519,6 @@ export function ProfilePage() {
           setBlockOpen(false);
           setBlocked(true);
           toast.success(`已拉黑 @${profile.handle}`);
-        }}
-      />
-
-      {/* ---------- 退出登录二次确认 ---------- */}
-      <ConfirmDialog
-        open={logoutOpen}
-        onClose={() => setLogoutOpen(false)}
-        danger
-        title="退出当前账号？"
-        confirmText="退出登录"
-        description="退出后需要重新登录才能发帖和查看消息。你的草稿会保留在本机。"
-        onConfirm={() => {
-          setLogoutOpen(false);
-          signOut();
-          toast.success('已退出登录');
-          navigate('/login', { replace: true });
         }}
       />
     </AppShell>

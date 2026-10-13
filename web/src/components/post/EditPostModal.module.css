@@ -1,0 +1,100 @@
+/* ==========================================================================
+   EditPostModal：编辑动态（正文 + 可见范围）
+   ========================================================================== */
+
+.body {
+  padding: 4px 0 8px;
+}
+
+/* ---------- 可见范围 ---------- */
+.visibility {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.visibility:hover {
+  background: var(--bg-hover);
+}
+
+.visibility__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.visibility__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.visibility__label {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.visibility__desc {
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+}
+
+/* ---------- 正文 ---------- */
+.field {
+  position: relative;
+  display: block;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 132px;
+  padding: 12px 14px 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--font-base);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.counter {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+}
+
+.counter--over {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.note {
+  margin: 10px 2px 0;
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+  line-height: 1.6;
+}

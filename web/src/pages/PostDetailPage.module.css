@@ -157,17 +157,6 @@
   font-weight: 700;
 }
 
-.meta__copy {
-  margin-top: 6px;
-  align-self: flex-start;
-  font-size: var(--font-sm);
-  color: var(--accent);
-}
-
-.meta__copy:hover {
-  text-decoration: underline;
-}
-
 /* ---------- 数据摘要行 ---------- */
 .summary {
   display: flex;

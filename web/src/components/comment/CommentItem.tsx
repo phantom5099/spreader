@@ -1,6 +1,10 @@
 import { memo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Heart, CornerDownRight } from 'lucide-react';
+import { MessageCircle, Heart, CornerDownRight, Flag, Share2, Trash2 } from 'lucide-react';
+import { ContextMenu, type ContextMenuItem } from '@/components/common/ContextMenu';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { ReportModal } from '@/components/report/ReportModal';
+import { CURRENT_USER } from '@/mocks/currentUser';
 import type { Comment } from '@/types/feed';
 import { formatRelativeTime, formatCount } from '@/utils/format';
 import styles from './CommentItem.module.css';
@@ -28,6 +32,10 @@ interface CommentItemProps {
   onLike?: (comment: CommentView) => void;
   onReply?: (comment: CommentView) => void;
   onOpenProfile?: (handle: string) => void;
+  /** 分享（复制动态链接），由页面接管 */
+  onShare?: (comment: CommentView) => void;
+  /** 删除自己的评论 */
+  onDelete?: (comment: CommentView) => void;
 }
 
 const CLAMP_THRESHOLD = 180;
@@ -38,19 +46,46 @@ export const CommentItem = memo(function CommentItem({
   onLike,
   onReply,
   onOpenProfile,
+  onShare,
+  onDelete,
 }: CommentItemProps) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [showReplies, setShowReplies] = useState(false);
+  /** 「更多」菜单与举报 / 删除确认 */
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const clamp = !isReply && comment.text.length > CLAMP_THRESHOLD && !expanded;
   const replies = comment.replies ?? [];
+  const mine = comment.author.handle === CURRENT_USER.handle;
 
   const openProfile = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onOpenProfile) onOpenProfile(comment.author.handle);
     else navigate(`/u/${comment.author.handle}`);
   };
+
+  /* 不放「分享这条动态」：评论操作行已经有分享按钮，菜单里再来一份是重复入口 */
+  const menuItems: ContextMenuItem[] = [
+    {
+      key: 'report',
+      label: '举报这条评论',
+      danger: true,
+      icon: <Flag size={16} strokeWidth={1.9} aria-hidden />,
+      onSelect: () => setReportOpen(true),
+    },
+  ];
+  if (mine) {
+    menuItems.push({
+      key: 'delete',
+      label: '删除评论',
+      danger: true,
+      icon: <Trash2 size={16} strokeWidth={1.9} aria-hidden />,
+      onSelect: () => setDeleteOpen(true),
+    });
+  }
 
   return (
     <>
@@ -92,7 +127,12 @@ export const CommentItem = memo(function CommentItem({
               type="button"
               className={styles.item__more}
               aria-label="更多操作"
-              onClick={(e) => e.stopPropagation()}
+              aria-haspopup="menu"
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMenu({ x: rect.right - 8, y: rect.bottom + 4 });
+              }}
             >
               ⋯
             </button>
@@ -132,7 +172,7 @@ export const CommentItem = memo(function CommentItem({
             </div>
           ) : null}
 
-          {/* 操作行：仅 回复 + 点赞 */}
+          {/* 操作行：回复 + 点赞 + 分享 */}
           <div className={styles.item__actions}>
             <button
               type="button"
@@ -169,6 +209,17 @@ export const CommentItem = memo(function CommentItem({
               </span>
               {comment.counters.like > 0 ? formatCount(comment.counters.like) : null}
             </button>
+
+            <button
+              type="button"
+              className={styles.actBtn}
+              aria-label="分享这条评论"
+              onClick={() => onShare?.(comment)}
+            >
+              <span className={styles.actBtn__hit}>
+                <Share2 size={17} strokeWidth={1.75} aria-hidden />
+              </span>
+            </button>
           </div>
 
           {/* 展开子回复 */}
@@ -195,9 +246,38 @@ export const CommentItem = memo(function CommentItem({
               onLike={onLike}
               onReply={onReply}
               onOpenProfile={onOpenProfile}
+              onShare={onShare}
+              onDelete={onDelete}
             />
           ))
         : null}
+
+      {/* 更多操作 */}
+      <ContextMenu
+        point={menu}
+        items={menuItems}
+        onClose={() => setMenu(null)}
+        ariaLabel="评论操作"
+      />
+
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetLabel={`@${comment.author.handle} 的评论`}
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        danger
+        title="删除这条评论？"
+        confirmText="删除"
+        description="删除后无法恢复，其他用户的回复也会一并移除。"
+        onConfirm={() => {
+          setDeleteOpen(false);
+          onDelete?.(comment);
+        }}
+      />
     </>
   );
 });

@@ -4,20 +4,23 @@ import {
   Bookmark,
   Heart,
   MessageCircle,
+  MoreHorizontal,
   Play,
-  Repeat2,
   Share2,
   Volume2,
   VolumeX,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Modal } from '@/components/common/Modal';
+import { PostMenu } from '@/components/post/PostMenu';
 import { useAudible, useInViewPlayback } from '@/hooks/useInViewPlayback';
 import { fetchComments, fetchShortVideos, toggleFollowApi } from '@/mocks/api';
 import { CURRENT_USER } from '@/mocks/currentUser';
 import { useFeedStore } from '@/stores/feedStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { toast } from '@/stores/toastStore';
 import { formatCount } from '@/utils/format';
+import { sharePostLink } from '@/utils/share';
 import type { CommentView } from '@/components/comment/CommentItem';
 import type { FeedItem } from '@/types/feed';
 import styles from './VideosPage.module.css';
@@ -29,12 +32,15 @@ import styles from './VideosPage.module.css';
 interface VideoProps {
   item: FeedItem;
   index: number;
+  /** 是否循环播放（设置页可改）。关闭时播完自动切下一条 */
+  loop: boolean;
   /** 播放到结尾时通知外层前进 */
   onEnded: (index: number) => void;
   onLike: (item: FeedItem) => void;
   onOpenReplies: (item: FeedItem) => void;
-  onRepost: (item: FeedItem) => void;
+  onMore: (item: FeedItem, point: { x: number; y: number }) => void;
   onBookmark: (item: FeedItem) => void;
+  onShare: (item: FeedItem) => void;
 }
 
 /**
@@ -43,16 +49,18 @@ interface VideoProps {
  * 播放状态分三层，互不耦合：
  *   ① 是否该播 —— 可见性判定（≥60% 可见且停留 >250ms），滚出即停不重置进度
  *   ② 谁能出声 —— 全局唯一有声者，默认全静音，点了喇叭才出声
- *   ③ 播到哪了 —— 由 duration_ms 驱动的进度，到结尾通知外层翻下一条
+ *   ③ 播到哪了 —— 由 duration_ms 驱动的进度；循环播放时回到开头，否则通知外层翻下一条
  */
 const Video = memo(function Video({
   item,
   index,
+  loop,
   onEnded,
   onLike,
   onOpenReplies,
-  onRepost,
+  onMore,
   onBookmark,
+  onShare,
 }: VideoProps) {
   const { ref, inView } = useInViewPlayback({ threshold: 0.6, dwellMs: 250 });
   const { isAudible, claim, release } = useAudible(ref);
@@ -75,13 +83,14 @@ const Video = memo(function Video({
     if (!playing) release();
   }, [playing, release]);
 
-  /* 进度时钟：暂停时停在原地，恢复时从原处续 */
+  /* 进度时钟：暂停时停在原地，恢复时从原处续；
+     到结尾时按「循环播放」偏好二选一：回到开头，或交给外层翻下一条 */
   useEffect(() => {
     if (!playing) return;
 
     let raf = 0;
     let last = 0;
-    const start = performance.now() - progressRef.current * duration;
+    let start = performance.now() - progressRef.current * duration;
 
     const tick = (now: number) => {
       // 约 100ms 更新一次，60fps 重渲染这一屏的 DOM 没有必要
@@ -90,9 +99,17 @@ const Video = memo(function Video({
         const next = Math.min(1, (now - start) / duration);
         progressRef.current = next;
         setProgress(next);
+
         if (next >= 1) {
-          onEnded(index);
-          return;
+          if (loop) {
+            /* 从头再来：把时钟重置，不打扰外层 */
+            start = now;
+            progressRef.current = 0;
+            setProgress(0);
+          } else {
+            onEnded(index);
+            return;
+          }
         }
       }
       raf = window.requestAnimationFrame(tick);
@@ -100,7 +117,7 @@ const Video = memo(function Video({
 
     raf = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(raf);
-  }, [playing, duration, index, onEnded]);
+  }, [playing, duration, index, onEnded, loop]);
 
   useEffect(
     () => () => {
@@ -167,7 +184,7 @@ const Video = memo(function Video({
           src={media.url}
           poster={media.cover_url}
           autoPlay
-          loop
+          loop={loop}
           muted={!isAudible}
           playsInline
           preload="metadata"
@@ -282,15 +299,11 @@ const Video = memo(function Video({
 
           <button
             type="button"
-            className={[styles.action, item.viewer.reposted ? styles['action--reposted'] : '']
-              .filter(Boolean)
-              .join(' ')}
-            aria-label={item.viewer.reposted ? '取消转推' : '转推'}
-            aria-pressed={item.viewer.reposted}
-            onClick={() => onRepost(item)}
+            className={styles.action}
+            aria-label="分享"
+            onClick={() => onShare(item)}
           >
-            <Repeat2 size={26} strokeWidth={1.9} aria-hidden />
-            <span className={styles.action__count}>{formatCount(item.counters.repost)}</span>
+            <Share2 size={26} strokeWidth={1.9} aria-hidden />
           </button>
 
           <button
@@ -310,18 +323,18 @@ const Video = memo(function Video({
             />
           </button>
 
+          {/* 更多：举报 / 屏蔽同类视频在这里，分享已经单独有按钮，不再另设重复入口 */}
           <button
             type="button"
             className={styles.action}
-            aria-label="复制链接"
-            onClick={() => {
-              void navigator.clipboard
-                ?.writeText(`${location.origin}/post/${item.content_id}`)
-                .then(() => toast.success('链接已复制'))
-                .catch(() => toast.error('复制失败'));
+            aria-label="更多操作"
+            aria-haspopup="menu"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              onMore(item, { x: rect.left, y: rect.bottom + 4 });
             }}
           >
-            <Share2 size={26} strokeWidth={1.9} aria-hidden />
+            <MoreHorizontal size={26} strokeWidth={1.9} aria-hidden />
           </button>
         </div>
       </div>
@@ -408,13 +421,18 @@ export function VideosPage() {
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);
   const [panelFor, setPanelFor] = useState<FeedItem | null>(null);
+  /** 「更多」菜单：锚点 + 目标视频 */
+  const [menu, setMenu] = useState<{ item: FeedItem; point: { x: number; y: number } } | null>(
+    null,
+  );
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const indexRef = useRef(0);
 
   const toggleLike = useFeedStore((s) => s.toggleLike);
-  const toggleRepost = useFeedStore((s) => s.toggleRepost);
   const toggleBookmark = useFeedStore((s) => s.toggleBookmark);
+  /* 循环播放默认开启，可在「设置 → 显示设置」里改 */
+  const videoLoop = usePreferencesStore((s) => s.video_loop);
 
   useEffect(() => {
     let alive = true;
@@ -449,19 +467,6 @@ export function VideosPage() {
     [patch, toggleLike],
   );
 
-  const repost = useCallback(
-    (item: FeedItem) => {
-      toggleRepost(item.content_id);
-      patch(item.content_id, (it) => ({
-        ...it,
-        viewer: { ...it.viewer, reposted: !it.viewer.reposted },
-        counters: { ...it.counters, repost: it.counters.repost + (it.viewer.reposted ? -1 : 1) },
-      }));
-      toast.show(item.viewer.reposted ? '已取消转推' : '已转推');
-    },
-    [patch, toggleRepost],
-  );
-
   const bookmark = useCallback(
     (item: FeedItem) => {
       toggleBookmark(item.content_id);
@@ -473,6 +478,10 @@ export function VideosPage() {
     },
     [patch, toggleBookmark],
   );
+
+  const share = useCallback((item: FeedItem) => {
+    sharePostLink(item.content_id);
+  }, []);
 
   const goTo = useCallback(
     (next: number) => {
@@ -572,15 +581,28 @@ export function VideosPage() {
               key={item.content_id}
               item={item}
               index={i}
+              loop={videoLoop}
               onEnded={handleEnded}
               onLike={like}
               onOpenReplies={setPanelFor}
-              onRepost={repost}
+              onMore={(target, point) => setMenu({ item: target, point })}
               onBookmark={bookmark}
+              onShare={share}
             />
           ))}
         </div>
       </div>
+
+      {/* ---------- 更多：举报 / 屏蔽同类视频 ---------- */}
+      <PostMenu
+        point={menu?.point ?? null}
+        item={menu?.item ?? null}
+        mine={menu?.item.author.handle === CURRENT_USER.handle}
+        onClose={() => setMenu(null)}
+        onRemoved={(target) => {
+          setItems((prev) => prev.filter((it) => it.content_id !== target.content_id));
+        }}
+      />
 
       {panelFor ? (
         <RepliesPanel item={panelFor} onClose={() => setPanelFor(null)} />

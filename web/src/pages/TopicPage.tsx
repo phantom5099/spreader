@@ -4,6 +4,7 @@ import { ArrowLeft, Hash, MoreHorizontal, TrendingUp } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Aside } from '@/components/layout/Aside';
 import { PostCard } from '@/components/post/PostCard';
+import { PostMenu } from '@/components/post/PostMenu';
 import { PostCardSkeleton } from '@/components/post/PostCardSkeleton';
 import { FollowButton } from '@/components/profile/FollowButton';
 import { toast } from '@/stores/toastStore';
@@ -11,7 +12,10 @@ import { useFeedStore } from '@/stores/feedStore';
 import { ALL_FEED_ITEMS, TRENDS } from '@/mocks/feed';
 import { findTopic } from '@/mocks/topics';
 import { coverDataUri } from '@/mocks/users';
+import { CURRENT_USER } from '@/mocks/currentUser';
 import { formatCount } from '@/utils/format';
+import { sharePostLink } from '@/utils/share';
+import type { FeedItem } from '@/types/feed';
 import styles from './TopicPage.module.css';
 
 type TopicTab = 'top' | 'latest' | 'media';
@@ -31,8 +35,14 @@ export function TopicPage() {
   const [followed, setFollowed] = useState(false);
 
   const toggleLike = useFeedStore((s) => s.toggleLike);
-  const toggleRepost = useFeedStore((s) => s.toggleRepost);
   const toggleBookmark = useFeedStore((s) => s.toggleBookmark);
+
+  /** 本页可见性覆盖：删除已在 mock 层生效（靠 dataVersion 重新取数），屏蔽只影响本页 */
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [dataVersion, setDataVersion] = useState(0);
+  const [menu, setMenu] = useState<{ item: FeedItem; point: { x: number; y: number } } | null>(
+    null,
+  );
 
   const cover = useMemo(() => coverDataUri(`topic_${name}`), [name]);
 
@@ -47,7 +57,9 @@ export function TopicPage() {
   }, [name]);
 
   const items = useMemo(() => {
-    const published = ALL_FEED_ITEMS.filter((i) => i.status === 'published');
+    const published = ALL_FEED_ITEMS.filter(
+      (i) => i.status === 'published' && !hidden.has(i.content_id),
+    );
     const seed = [...name].reduce((a, c) => a + c.charCodeAt(0), 0);
     const start = seed % Math.max(1, published.length - 14);
     const slice = published.slice(start, start + 14);
@@ -59,7 +71,8 @@ export function TopicPage() {
       return [...slice].sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at));
     }
     return [...slice].sort((a, b) => b.counters.like - a.counters.like);
-  }, [name, tab]);
+    /* dataVersion：编辑/删除在 mock 层完成后靠它重新取数 */
+  }, [name, tab, hidden, dataVersion]);
 
   useEffect(() => {
     setLoading(true);
@@ -187,10 +200,10 @@ export function TopicPage() {
                 key={`${tab}_${item.content_id}`}
                 item={item}
                 onLike={() => toggleLike(item.content_id)}
-                onRepost={() => toggleRepost(item.content_id)}
+                onShare={() => sharePostLink(item.content_id)}
                 onBookmark={() => toggleBookmark(item.content_id)}
                 onReply={() => navigate(`/post/${item.content_id}`)}
-                onMore={() => toast.show('更多操作（Demo 未实现）')}
+                onMore={(target, point) => setMenu({ item: target, point })}
               />
             ))
           )}
@@ -198,6 +211,20 @@ export function TopicPage() {
           <div className={styles.tail} />
         </div>
       </div>
+
+      {/* ---------- 动态操作菜单 ---------- */}
+      <PostMenu
+        point={menu?.point ?? null}
+        item={menu?.item ?? null}
+        mine={menu?.item.author.handle === CURRENT_USER.handle}
+        onClose={() => setMenu(null)}
+        onUpdated={() => setDataVersion((v) => v + 1)}
+        onRemoved={(target, reason) => {
+          /* 屏蔽只影响本页；删除已经在 mock 层生效，重新取数即可 */
+          if (reason === 'hidden') setHidden((prev) => new Set(prev).add(target.content_id));
+          setDataVersion((v) => v + 1);
+        }}
+      />
     </AppShell>
   );
 }

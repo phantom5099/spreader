@@ -4,7 +4,16 @@
  * 左导航（Rail）与窄屏底部 Tab（BottomTabBar）共用同一份数据与选中判定，
  * 避免两处各写一份后逐渐走样。
  */
-import { Bell, Bookmark, CircleUserRound, Clapperboard, Hash, Home, Mail } from 'lucide-react';
+import {
+  Bell,
+  Bookmark,
+  CircleUserRound,
+  Clapperboard,
+  Hash,
+  Home,
+  Mail,
+  Settings,
+} from 'lucide-react';
 import { CURRENT_USER } from '@/mocks/currentUser';
 
 export interface NavItem {
@@ -13,8 +22,10 @@ export interface NavItem {
   icon: typeof Home;
   /** 未读角标 */
   badge?: number;
-  /** 是否出现在窄屏底部 Tab（底部只放 5 个一级入口） */
+  /** 是否出现在窄屏底部 Tab */
   inTabBar?: boolean;
+  /** 只出现在底部 Tab，不进左导航（左导航已有等价入口时用） */
+  tabBarOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -25,7 +36,11 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/messages', label: '聊天', icon: Mail, badge: 2, inTabBar: true },
   { to: '/bookmarks', label: '收藏', icon: Bookmark },
   { to: '/me', label: '我', icon: CircleUserRound, inTabBar: true },
+  { to: '/settings', label: '设置', icon: Settings, inTabBar: true, tabBarOnly: true },
 ];
+
+/** 左导航用的一级入口 */
+export const RAIL_ITEMS = NAV_ITEMS.filter((i) => !i.tabBarOnly);
 
 /** 底部 Tab 用的一级入口 */
 export const TABBAR_ITEMS = NAV_ITEMS.filter((i) => i.inTabBar);

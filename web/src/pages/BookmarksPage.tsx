@@ -4,9 +4,13 @@ import { Bookmark, Search, X } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Aside } from '@/components/layout/Aside';
 import { PostCard } from '@/components/post/PostCard';
+import { PostMenu } from '@/components/post/PostMenu';
 import { toast } from '@/stores/toastStore';
 import { useFeedStore } from '@/stores/feedStore';
 import { ALL_FEED_ITEMS } from '@/mocks/feed';
+import { CURRENT_USER } from '@/mocks/currentUser';
+import { sharePostLink } from '@/utils/share';
+import type { FeedItem } from '@/types/feed';
 import styles from './BookmarksPage.module.css';
 
 /**
@@ -18,12 +22,17 @@ export function BookmarksPage() {
   const navigate = useNavigate();
   const feedItems = useFeedStore((s) => s.items);
   const toggleLike = useFeedStore((s) => s.toggleLike);
-  const toggleRepost = useFeedStore((s) => s.toggleRepost);
   const toggleBookmark = useFeedStore((s) => s.toggleBookmark);
+  const removeItem = useFeedStore((s) => s.removeItem);
+  const updateItem = useFeedStore((s) => s.updateItem);
 
   /** 本地快照：进入页面时锁定收藏集合，取消收藏后就地移除（不触发整页重排） */
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
+  /** 「更多」菜单：锚点 + 目标动态 */
+  const [menu, setMenu] = useState<{ item: FeedItem; point: { x: number; y: number } } | null>(
+    null,
+  );
 
   const bookmarked = useMemo(() => {
     const pool = feedItems.length > 0 ? feedItems : ALL_FEED_ITEMS;
@@ -109,10 +118,10 @@ export function BookmarksPage() {
                 key={item.content_id}
                 item={{ ...item, viewer: { ...item.viewer, bookmarked: true } }}
                 onLike={() => toggleLike(item.content_id)}
-                onRepost={() => toggleRepost(item.content_id)}
+                onShare={() => sharePostLink(item.content_id)}
                 onBookmark={() => onUnbookmark(item.content_id)}
                 onReply={() => navigate(`/post/${item.content_id}`)}
-                onMore={() => toast.show('更多操作（Demo 未实现）')}
+                onMore={(target, point) => setMenu({ item: target, point })}
               />
             ))
           )}
@@ -120,6 +129,19 @@ export function BookmarksPage() {
           <div className={styles.tail} />
         </div>
       </div>
+
+      {/* ---------- 动态操作菜单 ---------- */}
+      <PostMenu
+        point={menu?.point ?? null}
+        item={menu?.item ?? null}
+        mine={menu?.item.author.handle === CURRENT_USER.handle}
+        onClose={() => setMenu(null)}
+        onUpdated={updateItem}
+        onRemoved={(target) => {
+          setRemoved((prev) => new Set(prev).add(target.content_id));
+          removeItem(target.content_id);
+        }}
+      />
     </AppShell>
   );
 }

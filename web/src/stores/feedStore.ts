@@ -26,10 +26,11 @@ interface FeedState {
   retry: () => Promise<void>;
   /** 乐观更新点赞 */
   toggleLike: (contentId: string) => void;
-  toggleRepost: (contentId: string) => void;
   toggleBookmark: (contentId: string) => void;
-  /** 从信息流移除（不感兴趣） */
+  /** 从信息流移除（删除 / 不感兴趣） */
   removeItem: (contentId: string) => void;
+  /** 就地替换一条（编辑动态后） */
+  updateItem: (item: FeedItem) => void;
   /** 发布成功后置顶插入 */
   prependItem: (item: FeedItem) => void;
 }
@@ -135,19 +136,6 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     });
   },
 
-  toggleRepost: (contentId) => {
-    set({
-      items: patch(get().items, contentId, (it) => ({
-        ...it,
-        viewer: { ...it.viewer, reposted: !it.viewer.reposted },
-        counters: {
-          ...it.counters,
-          repost: it.counters.repost + (it.viewer.reposted ? -1 : 1),
-        },
-      })),
-    });
-  },
-
   toggleBookmark: (contentId) => {
     set({
       items: patch(get().items, contentId, (it) => ({
@@ -159,6 +147,10 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 
   removeItem: (contentId) => {
     set({ items: get().items.filter((i) => i.content_id !== contentId) });
+  },
+
+  updateItem: (item) => {
+    set({ items: patch(get().items, item.content_id, () => item) });
   },
 
   prependItem: (item) => {

@@ -77,6 +77,34 @@
   cursor: not-allowed;
 }
 
+/* 头部文字按钮（管理模式：全选 / 删除） */
+.head__text {
+  padding: 7px 10px;
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.head__text:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.head__text:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.head__text--danger {
+  color: var(--danger);
+}
+
+.head__text--danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
 /* ---------- 分类 Tab ---------- */
 .tabs {
   position: sticky;
@@ -192,6 +220,44 @@
   border-radius: var(--radius-pill);
   background: var(--bg-elevated);
   margin-top: 4px;
+}
+
+/* ---------- 管理模式 ---------- */
+.item--managing {
+  padding-left: 6px;
+}
+
+.item--picked {
+  background: var(--accent-soft);
+}
+
+/* 多选框：与「未读圆点」同一个位置，互斥显示 */
+.item__check {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 9px 2px 0 2px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--border-strong);
+  color: #fff;
+  transition: background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.item__check--on {
+  border-color: transparent;
+  background: var(--accent);
+}
+
+/* 加载骨架 */
+.itemSkeleton {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px var(--card-pad-x);
+  border-bottom: 1px solid var(--border);
 }
 
 .item__avatar {

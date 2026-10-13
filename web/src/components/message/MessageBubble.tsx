@@ -1,6 +1,5 @@
 import { memo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Check, CheckCheck, Clock } from 'lucide-react';
 import type { Message } from '@/types/message';
 import { formatRelativeTime } from '@/utils/format';
 import styles from './MessageBubble.module.css';
@@ -158,10 +157,10 @@ export const MessageBubble = memo(function MessageBubble({
             ) : null}
           </div>
 
-          {/* 自己的消息：状态图标（撤回改由右键菜单触发） */}
+          {/* 自己的消息：送达状态用文字说清楚（图标看不懂） */}
           {mine ? (
             <span className={styles.line__meta}>
-              <StatusIcon status={message.status} />
+              <StatusLabel status={message.status} />
             </span>
           ) : null}
         </div>
@@ -176,37 +175,22 @@ export const MessageBubble = memo(function MessageBubble({
 
 /* -------------------------------------------------------------------------- */
 
-function StatusIcon({ status }: { status: Message['status'] }) {
-  switch (status) {
-    case 'sending':
-      return (
-        <span className={styles.status} title="发送中" aria-label="发送中">
-          <Clock size={12} strokeWidth={2.2} aria-hidden />
-        </span>
-      );
-    case 'sent':
-      return (
-        <span className={styles.status} title="已发送" aria-label="已发送">
-          <Check size={13} strokeWidth={2.6} aria-hidden />
-        </span>
-      );
-    case 'delivered':
-      return (
-        <span className={styles.status} title="已送达" aria-label="已送达">
-          <CheckCheck size={13} strokeWidth={2.6} aria-hidden />
-        </span>
-      );
-    case 'read':
-      return (
-        <span className={[styles.status, styles['status--read']].join(' ')} title="已读" aria-label="已读">
-          <CheckCheck size={13} strokeWidth={2.6} aria-hidden />
-        </span>
-      );
-    default:
-      return (
-        <span className={[styles.status, styles['status--error']].join(' ')} title="发送失败">
-          <AlertCircle size={13} strokeWidth={2.4} aria-hidden />
-        </span>
-      );
-  }
+/** 发送状态文案：发送中 / 已发送 / 已送达 / 已读 */
+const STATUS_TEXT: Record<Message['status'], string> = {
+  sending: '发送中',
+  sent: '已发送',
+  delivered: '已送达',
+  read: '已读',
+};
+
+function StatusLabel({ status }: { status: Message['status'] }) {
+  const text = STATUS_TEXT[status] ?? '发送失败';
+  const tone =
+    status === 'read' ? 'status--read' : STATUS_TEXT[status] ? '' : 'status--error';
+
+  return (
+    <span className={[styles.status, tone ? styles[tone] : ''].filter(Boolean).join(' ')}>
+      {text}
+    </span>
+  );
 }

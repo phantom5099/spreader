@@ -1,6 +1,6 @@
 /* ==========================================================================
    操作行
-   回复 / 转推 / 点赞 / 书签 / 浏览量
+   回复 / 分享 / 点赞 / 书签 / 浏览量
    ========================================================================== */
 
 .actions {
@@ -46,15 +46,15 @@
   background: var(--accent-soft);
 }
 
-.action--repost:hover,
-.action--repost:focus-visible {
-  color: var(--repost);
+.action--share:hover,
+.action--share:focus-visible {
+  color: var(--accent);
 }
-.action--repost:hover .action__hit {
-  background: var(--repost-soft);
+.action--share:hover .action__hit {
+  background: var(--accent-soft);
 }
-.action--repost.action--on {
-  color: var(--repost);
+.action--share.action--on {
+  color: var(--accent);
 }
 
 .action--like:hover,

@@ -28,10 +28,11 @@ interface PostCardProps {
   variant?: 'feed' | 'comment';
   onOpen?: (item: FeedItem) => void;
   onLike?: (item: FeedItem) => void;
-  onRepost?: (item: FeedItem) => void;
+  onShare?: (item: FeedItem) => void;
   onBookmark?: (item: FeedItem) => void;
   onReply?: (item: FeedItem) => void;
-  onMore?: (item: FeedItem) => void;
+  /** 「更多」按钮：由上层弹操作菜单（见 components/post/PostMenu.tsx） */
+  onMore?: (item: FeedItem, point: { x: number; y: number }) => void;
   /** 是否允许视频自动播放（全局开关：仅 Wi-Fi 播放场景） */
   allowAutoplay?: boolean;
 }
@@ -44,7 +45,7 @@ export const PostCard = memo(function PostCard({
   variant = 'feed',
   onOpen,
   onLike,
-  onRepost,
+  onShare,
   onBookmark,
   onReply,
   onMore,
@@ -135,9 +136,12 @@ export const PostCard = memo(function PostCard({
               type="button"
               className={styles.card__more}
               aria-label="更多操作"
+              aria-haspopup="menu"
               onClick={(e) => {
                 e.stopPropagation();
-                onMore?.(item);
+                /* 菜单锚在按钮右下角，避免盖住自己 */
+                const rect = e.currentTarget.getBoundingClientRect();
+                onMore?.(item, { x: rect.right - 8, y: rect.bottom + 4 });
               }}
             >
               <MoreHorizontal size={18} strokeWidth={2} aria-hidden />
@@ -230,7 +234,7 @@ export const PostCard = memo(function PostCard({
               compact={isComment}
               showView={!isComment}
               onReply={onReply ? () => onReply(item) : undefined}
-              onRepost={onRepost ? () => onRepost(item) : undefined}
+              onShare={onShare ? () => onShare(item) : undefined}
               onLike={onLike ? () => onLike(item) : undefined}
               onBookmark={onBookmark ? () => onBookmark(item) : undefined}
             />

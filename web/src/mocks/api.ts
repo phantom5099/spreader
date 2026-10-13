@@ -5,7 +5,7 @@
  *
  * 分页严格用 keyset 游标（cursor / limit / next_cursor / has_more）
  */
-import type { FeedPage, FeedQuery, FeedItem } from '@/types/feed';
+import type { FeedPage, FeedQuery, FeedItem, Visibility } from '@/types/feed';
 import type {
   AccountState,
   ListTab,
@@ -15,14 +15,22 @@ import type {
   UserSummary,
 } from '@/types/user';
 import type { Draft, PublishProgress, PublishStage } from '@/types/draft';
-import type { Message } from '@/types/message';
-import { ALL_FEED_ITEMS, SUGGESTED_USERS } from './feed';
+import type { Message, NotificationItem } from '@/types/message';
+import { ALL_FEED_ITEMS, SUGGESTED_USERS, getFeedItem, removeFeedItem, updateFeedItem } from './feed';
 import { SHORT_VIDEOS } from './shortVideos';
 import { CURRENT_USER } from './currentUser';
 import { avatarDataUri } from './placeholders';
 import { readDrafts, writeDrafts } from './drafts';
 import { readSearchHistory, writeSearchHistory } from './searchHistory';
-import { appendMessage, markRecalled, readMessages } from './messages';
+import {
+  appendMessage,
+  markNotificationsRead,
+  markRecalled,
+  readMessages,
+  readNotifications,
+  removeNotifications,
+} from './messages';
+import { readPlaybackPrefs, writePlaybackPrefs, type PlaybackPrefs } from './settings';
 import {
   ALL_PROFILES,
   MY_BLOCKED,
@@ -131,10 +139,39 @@ export async function fetchFeed(options: FetchFeedOptions): Promise<FeedPage> {
 /** 单条详情 */
 export async function fetchItem(contentId: string): Promise<FeedItemLike | null> {
   await delay(200);
-  return ALL_FEED_ITEMS.find((i) => i.content_id === contentId) ?? null;
+  /* 返回副本：详情页可以自由改本地状态，不会串改到库表 */
+  return getFeedItem(contentId) as FeedItemLike | null;
 }
 
 type FeedItemLike = (typeof ALL_FEED_ITEMS)[number];
+
+/* -------------------------------------------------------------------------- */
+/*  动态的编辑 / 删除                                                           */
+/* -------------------------------------------------------------------------- */
+
+/** 编辑动态：目前开放正文与可见范围 */
+export async function updatePostApi(
+  contentId: string,
+  patch: { text?: string; visibility?: Visibility },
+): Promise<FeedItem | null> {
+  await delay(280);
+  const current = getFeedItem(contentId);
+  if (!current) throw new Error('post_not_found');
+
+  return updateFeedItem(contentId, {
+    text: patch.text ?? current.text,
+    flags: {
+      ...current.flags,
+      visibility: patch.visibility ?? current.flags.visibility,
+    },
+  });
+}
+
+/** 删除动态 */
+export async function deletePostApi(contentId: string): Promise<void> {
+  await delay(260);
+  if (!removeFeedItem(contentId)) throw new Error('post_not_found');
+}
 
 /* -------------------------------------------------------------------------- */
 /*  评论                                                                        */
@@ -215,13 +252,28 @@ function buildComments(contentId: string, count: number, opHandle: string): Comm
 
 let item: FeedItemLike | undefined;
 
+/** 已删除的评论（Demo：评论是确定性生成的，删除只记 id，取数时过滤掉） */
+const DELETED_COMMENTS = new Set<string>();
+
 /** 评论列表（详情页用），返回顶层评论，子回复挂在 replies 上 */
 export async function fetchComments(contentId: string): Promise<CommentView[]> {
   await delay(340);
   item = ALL_FEED_ITEMS.find((i) => i.content_id === contentId);
   const replyCount = Math.min(item?.counters.reply ?? 0, 14);
   const opHandle = item?.author.handle ?? '';
-  return buildComments(contentId, replyCount, opHandle);
+  const alive = (c: CommentView): CommentView => ({
+    ...c,
+    replies: (c.replies ?? []).filter((r) => !DELETED_COMMENTS.has(r.comment_id)),
+  });
+  return buildComments(contentId, replyCount, opHandle)
+    .filter((c) => !DELETED_COMMENTS.has(c.comment_id))
+    .map(alive);
+}
+
+/** 删除评论 */
+export async function deleteCommentApi(commentId: string): Promise<void> {
+  await delay(220);
+  DELETED_COMMENTS.add(commentId);
 }
 
 /** 发表评论（Demo：直接成功并返回新评论对象） */
@@ -292,6 +344,45 @@ export async function recallMessageApi(
   await delay(220);
   const next = markRecalled(conversationId, messageId);
   if (!next) throw new Error('message_not_found');
+  return next;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  通知中心                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export async function fetchNotifications(): Promise<NotificationItem[]> {
+  await delay(280);
+  return readNotifications();
+}
+
+/** 标为已读：传 ids 只标这些，不传则全部 */
+export async function markNotificationsReadApi(ids?: string[]): Promise<void> {
+  await delay(180);
+  markNotificationsRead(ids);
+}
+
+/** 批量删除通知 */
+export async function deleteNotificationsApi(ids: string[]): Promise<void> {
+  await delay(220);
+  removeNotifications(ids);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  播放偏好                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export async function fetchPlaybackPrefs(): Promise<PlaybackPrefs> {
+  await delay(120);
+  return readPlaybackPrefs();
+}
+
+export async function updatePlaybackPrefsApi(
+  patch: Partial<PlaybackPrefs>,
+): Promise<PlaybackPrefs> {
+  await delay(160);
+  const next: PlaybackPrefs = { ...readPlaybackPrefs(), ...patch };
+  writePlaybackPrefs(next);
   return next;
 }
 

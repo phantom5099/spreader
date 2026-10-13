@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { Check, Monitor, Moon, Smartphone, Sun, Type } from 'lucide-react';
+import { Check, Monitor, Moon, Repeat, Smartphone, Sun, Type } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { SettingsGroup, SettingsRow } from '@/components/settings/SettingsRow';
+import { SettingsGroup, SettingsRow, SettingsSwitch } from '@/components/settings/SettingsRow';
 import {
   FONT_LABELS,
   FONT_SCALES,
@@ -10,6 +10,7 @@ import {
   type FontScaleIndex,
   type ThemeMode,
 } from '@/stores/appearanceStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import styles from './SettingsDisplayPage.module.css';
 
 const THEME_OPTIONS: Array<{ key: ThemeMode; label: string; desc: string; icon: typeof Sun }> = [
@@ -30,6 +31,10 @@ export function SettingsDisplayPage() {
   const fontScale = useAppearanceStore((s) => s.fontScale);
   const setTheme = useAppearanceStore((s) => s.setTheme);
   const setFontScale = useAppearanceStore((s) => s.setFontScale);
+
+  /* 播放偏好：循环播放默认开启，关掉就变成"播完自动切下一条" */
+  const videoLoop = usePreferencesStore((s) => s.video_loop);
+  const setVideoLoop = usePreferencesStore((s) => s.setVideoLoop);
 
   return (
     <AppShell>
@@ -140,6 +145,16 @@ export function SettingsDisplayPage() {
 
           {/* ---------- 其他显示项 ---------- */}
           <SettingsGroup>
+            <SettingsRow
+              icon={<Repeat size={19} strokeWidth={1.9} />}
+              label="短视频循环播放"
+              desc={
+                videoLoop
+                  ? '单条播完回到开头，不自动跳下一条'
+                  : '单条播完自动切到下一条'
+              }
+              control={<SettingsSwitch checked={videoLoop} onChange={setVideoLoop} />}
+            />
             <SettingsRow
               icon={<Smartphone size={19} strokeWidth={1.9} />}
               label="自动播放视频"

@@ -21,6 +21,17 @@
   --success: #00ba7c;
   --success-soft: rgba(0, 186, 124, 0.1);
 
+  /* 「关注」分裂出的「取消关注」实心色。
+     刻意用冷色而不是主色：两者同时存在时靠色相差一眼分辨状态，
+     同色实心的话只剩文案差异，扫一眼分不出来 */
+  --split-cancel: #1d9bf0;
+  --split-cancel-hover: #1a8cd8;
+  --split-cancel-soft: rgba(29, 155, 240, 0.12);
+
+  /* 分裂出的圆形聊天按钮表面色：亮色就是白圆，暗色换成抬升面，别在暗底上戳一个白洞 */
+  --split-chat-bg: #ffffff;
+  --split-chat-bg-hover: #eef1f3;
+
   /* ---------- 表面与文本（亮色）---------- */
   --bg: #ffffff;
   --bg-elevated: #f7f9f9;
@@ -119,6 +130,15 @@
   --warning-soft: rgba(245, 158, 11, 0.16);
   --success: #00ba7c;
   --success-soft: rgba(0, 186, 124, 0.15);
+
+  /* 暗底上把蓝提亮一档，保证实心按钮与白字仍有足够对比 */
+  --split-cancel: #2fa8f5;
+  --split-cancel-hover: #4db6f7;
+  --split-cancel-soft: rgba(47, 168, 245, 0.18);
+
+  /* 暗色不出现白圆：用抬升面，靠描边和图标保持可辨 */
+  --split-chat-bg: #17191d;
+  --split-chat-bg-hover: #23262b;
 
   --bg: #0a0a0a;
   --bg-elevated: #16181c;

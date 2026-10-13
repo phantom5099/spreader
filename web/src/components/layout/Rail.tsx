@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { NAV_ITEMS, isActivePath } from './navItems';
+import { RAIL_ITEMS, isActivePath } from './navItems';
 import { AccountMenu } from './AccountMenu';
 import styles from './Rail.module.css';
 
@@ -19,7 +19,7 @@ export function Rail() {
       </Link>
 
       <ul className={styles.rail__nav}>
-        {NAV_ITEMS.map((item) => {
+        {RAIL_ITEMS.map((item) => {
           const active = isActivePath(item.to, pathname);
           return (
             <li key={item.to}>

@@ -418,6 +418,33 @@ function buildAll(): FeedItem[] {
 
 export const ALL_FEED_ITEMS: FeedItem[] = buildAll();
 
+/* -------------------------------------------------------------------------- */
+/*  可变操作（只给数据访问层 api.ts 用）                                          */
+/*  缓存即"服务端库表"：就地改，所有拿到同一份数据的页面都会同步看到。              */
+/* -------------------------------------------------------------------------- */
+
+/** 取一条（副本） */
+export function getFeedItem(contentId: string): FeedItem | null {
+  const item = ALL_FEED_ITEMS.find((i) => i.content_id === contentId);
+  return item ? { ...item } : null;
+}
+
+/** 编辑动态：就地合并字段 */
+export function updateFeedItem(contentId: string, patch: Partial<FeedItem>): FeedItem | null {
+  const item = ALL_FEED_ITEMS.find((i) => i.content_id === contentId);
+  if (!item) return null;
+  Object.assign(item, patch);
+  return { ...item };
+}
+
+/** 删除动态：从库表移除，返回是否命中 */
+export function removeFeedItem(contentId: string): boolean {
+  const index = ALL_FEED_ITEMS.findIndex((i) => i.content_id === contentId);
+  if (index === -1) return false;
+  ALL_FEED_ITEMS.splice(index, 1);
+  return true;
+}
+
 export const TRENDS = [
   { topic: '摄影构图', post_count: 48200, category: '艺术' },
   { topic: '独立开发', post_count: 31500, category: '科技' },

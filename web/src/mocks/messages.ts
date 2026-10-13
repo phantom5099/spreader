@@ -357,5 +357,28 @@ function buildNotifications(): NotificationItem[] {
 
 export const NOTIFICATIONS: NotificationItem[] = buildNotifications();
 
+/* ---------- 通知：可变操作（只给数据访问层 api.ts 用）---------- */
+
+/** 通知列表（副本） */
+export function readNotifications(): NotificationItem[] {
+  return NOTIFICATIONS.map((n) => ({ ...n }));
+}
+
+/** 标为已读：传 ids 只标这些，不传则全部 */
+export function markNotificationsRead(ids?: string[]): void {
+  const set = ids ? new Set(ids) : null;
+  for (const n of NOTIFICATIONS) {
+    if (!set || set.has(n.notification_id)) n.read = true;
+  }
+}
+
+/** 删除指定通知 */
+export function removeNotifications(ids: string[]): void {
+  const set = new Set(ids);
+  for (let i = NOTIFICATIONS.length - 1; i >= 0; i -= 1) {
+    if (set.has(NOTIFICATIONS[i]!.notification_id)) NOTIFICATIONS.splice(i, 1);
+  }
+}
+
 /** 供新会话使用：可选的群聊成员池 */
 export const GROUP_CANDIDATES = MY_FOLLOWING.slice(0, 18);

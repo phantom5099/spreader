@@ -21,6 +21,26 @@
     border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
+.follow__label {
+  display: inline-block;
+}
+
+/* 换文案时给一下「字是新出来的」的交代，不然只是硬切 */
+.follow__label--anim {
+  animation: labelIn 260ms var(--ease-out) both;
+}
+
+@keyframes labelIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ---------- 未关注：实心主色 ---------- */
 .follow--none {
   background: var(--accent);
@@ -73,3 +93,243 @@
   opacity: 0.6;
   pointer-events: none;
 }
+
+/* ==========================================================================
+   分裂形态（个人主页头部）
+   未关注 = 一个实心「关注」；已关注 = 白圆聊天钮 + 蓝色「取消关注」
+   点关注：胶囊被扯一下，聊天圆从里面挤出来
+   点取消：聊天圆缩回胶囊、散成粒子，胶囊回到「关注」
+   ========================================================================== */
+
+.split {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 槽位宽度 0 ↔ 34px：靠它把胶囊顶开、收拢，圆钮本身只负责变形 */
+.split__chatSlot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0;
+  transition: width 380ms cubic-bezier(0.3, 1.05, 0.4, 1), margin-right 380ms cubic-bezier(0.3, 1.05, 0.4, 1);
+}
+
+.split[data-on='true'] .split__chatSlot {
+  width: 34px;
+  margin-right: 8px;
+}
+
+.chat {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--split-chat-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0);
+  pointer-events: none;
+  transition: opacity 180ms var(--ease-out), transform 300ms var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.split[data-on='true'] .chat {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.chat:hover {
+  background: var(--split-chat-bg-hover);
+  border-color: var(--text-secondary);
+}
+
+.chat:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- 分裂：水滴挤出来 ---------- */
+.split[data-morph='split'] .chat {
+  animation: chatDropIn 500ms cubic-bezier(0.32, 1, 0.44, 1) both;
+}
+
+@keyframes chatDropIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.15);
+  }
+  34% {
+    opacity: 1;
+    transform: scale(1.22, 0.8);
+  }
+  64% {
+    transform: scale(0.9, 1.12);
+  }
+  85% {
+    transform: scale(1.05, 0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 胶囊被扯一下，才有「从它身上分出去」的因果感 */
+.split[data-morph='split'] .follow {
+  animation: pillStretch 500ms var(--ease-out) both;
+  transform-origin: right center;
+}
+
+@keyframes pillStretch {
+  0% {
+    transform: scaleX(1);
+  }
+  35% {
+    transform: scaleX(1.07);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/* ---------- 合并：圆钮被吸回胶囊 ---------- */
+.split[data-morph='merge'] .chat {
+  animation: chatMerge 260ms cubic-bezier(0.2, 1, 0.4, 1) both;
+}
+
+/* 先缩掉、再收缝：两件事同时做的话圆钮会压在胶囊上 */
+.split[data-morph='merge'] .split__chatSlot {
+  transition-duration: 200ms;
+  transition-delay: 150ms;
+}
+
+@keyframes chatMerge {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1.18, 0.86);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.12);
+  }
+}
+
+.split[data-morph='merge'] .follow {
+  animation: pillAbsorb 440ms var(--ease-out) both;
+}
+
+@keyframes pillAbsorb {
+  0% {
+    transform: scaleX(1);
+  }
+  30% {
+    transform: scaleX(0.94);
+  }
+  62% {
+    transform: scaleX(1.05);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/* ---------- 已关注：蓝色实心 ---------- */
+.follow--split-on {
+  background: var(--split-cancel);
+  border-color: var(--split-cancel);
+  color: #fff;
+}
+
+.follow--split-hover {
+  background: var(--split-cancel-hover);
+  border-color: var(--split-cancel-hover);
+}
+
+/* ---------- 粒子 ---------- */
+.burst {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--dot-size);
+  height: var(--dot-size);
+  border-radius: 50%;
+  animation: dotFly 700ms cubic-bezier(0.25, 0.7, 0.4, 1) both;
+  animation-delay: var(--dot-delay);
+}
+
+/* 粒子只用三个不透明的语义色：明暗主题下都有对比度。
+   半透明的那几个在白底上会淡到看不见，所以不参与 */
+.dot--blue {
+  background: var(--split-cancel);
+}
+
+.dot--accent {
+  background: var(--accent);
+}
+
+.dot--neutral {
+  background: var(--text-secondary);
+}
+
+/* 关键是「飞的时候别缩」：之前一路缩到 0，飞到一半就看不见了。
+   缩放到 16% 处就到位，之后靠透明度收尾 */
+@keyframes dotFly {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.35);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--dot-dx) * 0.16), calc(-50% + var(--dot-dy) * 0.16))
+      scale(1);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dot-dx)), calc(-50% + var(--dot-dy))) scale(0.7);
+  }
+}
+
+/* 系统开了「减弱动态效果」就只保留状态切换，不做位移与粒子 */
+@media (prefers-reduced-motion: reduce) {
+  .split__chatSlot,
+  .chat {
+    transition-duration: 1ms;
+  }
+
+  .split[data-morph] .chat,
+  .split[data-morph] .follow,
+  .follow__label--anim,
+  .dot {
+    animation: none;
+  }
+
+  .burst {
+    display: none;
+  }
+}
+
