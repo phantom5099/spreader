@@ -22,7 +22,7 @@
 
 ```
 web/
-├── src/
+├── src/                # client (the only client source dir; admin code must not live here)
 │   ├── pages/          # route pages
 │   ├── components/     # components, grouped by module (feed / post / comment / message / ...)
 │   ├── hooks/          # custom hooks (useXxx.ts)
@@ -31,9 +31,18 @@ web/
 │   ├── styles/         # design tokens and global styles (tokens.css / app.css)
 │   ├── types/          # type definitions
 │   └── utils/          # utility functions
+├── admin/              # admin console — an independent app (own process, entry and output)
+│   ├── pages/          # admin route pages
+│   ├── components/     # shared admin components
+│   ├── stores/         # admin session / toast
+│   ├── mocks/          # adminApi.ts: the only data entry point (swap point for the real backend)
+│   ├── styles/         # admin.css
+│   └── main.tsx App.tsx types.ts labels.ts   # entry / routes / DTO types / label maps
+├── admin.html          # admin HTML entry (build input of vite.admin.config.ts)
 ├── scripts/            # validation scripts (check-*.cjs)
 ├── eslint.config.js
-├── vite.config.ts
+├── vite.config.ts            # client config (port 5173, output dist/client)
+├── vite.admin.config.ts      # admin config (port 5174, output dist/admin)
 ├── vitest.config.ts
 └── package.json
 ```
@@ -45,21 +54,24 @@ web/
 - Hooks are named `useXxx` and live in `src/hooks/`.
 - Colours / sizes / motion **must** use CSS variables (design tokens in `src/styles/tokens.css`); **hard-coded colour values are forbidden**.
 - Interactive elements need an `aria-label`; decorative icons need `aria-hidden`.
-- All data access goes through `src/mocks/api.ts`; components never read mock data directly.
+- Admin code lives in `admin/` only and shares nothing at runtime with the client; the two apps are separate processes with separate build outputs.
 - Icons use `lucide-react` only; do not add another icon library and do not copy third-party brand icon shapes.
 - Comments explain **why** only, at most 3 lines (root file §4.1).
 
 ## Commands
 
 ```bash
-bun install        # install dependencies (first time)
-bun run dev        # dev server -> http://localhost:5173
-bun run build      # type check + production build -> web/dist
-bun run preview    # preview the build output locally
-bun run typecheck  # type check only
-bun run lint       # ESLint
-bun run test       # Vitest (single run)
-bun run test:watch # Vitest (watch)
+bun install         # install dependencies (first time)
+bun run dev         # client dev server -> http://localhost:5173
+bun run dev:admin   # admin dev server  -> http://localhost:5174
+bun run build       # type check + build both apps -> web/dist/client + web/dist/admin
+bun run build:admin # build the admin console only -> web/dist/admin
+bun run preview       # preview the client build -> http://localhost:4173
+bun run preview:admin # preview the admin build   -> http://localhost:4174
+bun run typecheck   # type check only
+bun run lint        # ESLint
+bun run test        # Vitest (single run)
+bun run test:watch  # Vitest (watch)
 ```
 
 ## Testing
