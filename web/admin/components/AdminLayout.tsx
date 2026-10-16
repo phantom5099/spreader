@@ -27,8 +27,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: '/', label: '工作台', icon: LayoutDashboard, end: true },
-  { to: '/review', label: '内容审核', icon: ClipboardCheck, badge: 'review' },
-  { to: '/content', label: '内容处置', icon: ShieldAlert },
+  { to: '/review', label: '内容审核', icon: ClipboardCheck, badge: 'review' },  { to: '/content', label: '内容处置', icon: ShieldAlert },
   { to: '/users', label: '用户处置', icon: UserCog },
   { to: '/reports', label: '举报与申诉', icon: Flag, badge: 'reports' },
   { to: '/logs', label: '处置日志', icon: ScrollText },
@@ -105,7 +104,11 @@ export function AdminLayout() {
             <span className={s.crumbCurrent}>{current.label}</span>
           </div>
           <div className={s.topActions}>
-            <a className={s.backToClient} href="/" title="返回 spreader 客户端">
+            <a
+              className={s.backToClient}
+              href={import.meta.env.VITE_CLIENT_URL ?? 'http://127.0.0.1:5173'}
+              title="返回 spreader 客户端"
+            >
               返回客户端
             </a>
             <span className={s.adminName}>{admin?.name ?? admin?.account}</span>

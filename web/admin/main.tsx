@@ -11,7 +11,10 @@ useAdminSessionStore.getState().restore();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename="/admin">
+    {/* basename 取 Vite 的 base：独立进程部署在根路径；
+     * 若将来要挂在某域名 /admin 子路径下，只需给 vite.admin.config.ts
+     * 加 base: '/admin/'，此处无需改动 */}
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AdminApp />
     </BrowserRouter>
   </StrictMode>,
