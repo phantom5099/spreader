@@ -1,0 +1,165 @@
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.backLink:hover {
+  color: var(--accent);
+}
+
+.notFound {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.notFound .backLink {
+  margin-top: 12px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.mainCol,
+.sideCol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- 内容预览 ---------- */
+
+.previewBox {
+  position: relative;
+  padding: 14px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+}
+
+.previewText {
+  font-size: var(--font-base);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.previewMeta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+/* ---------- 机器结论 ---------- */
+
+.machineHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.confidence {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.source {
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+}
+
+.features {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.noFeatures {
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+}
+
+.confidenceBar {
+  margin-top: 12px;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.confidenceFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+}
+
+.strategy {
+  margin-top: 8px;
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+}
+
+/* ---------- 举报 / 表单 ---------- */
+
+.reportHint {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+.reportCount {
+  margin-top: 8px;
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+}
+
+.inlineLink {
+  margin: 0 4px;
+}
+
+.userLink {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: var(--font-xs);
+  color: var(--accent);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.error {
+  font-size: var(--font-xs);
+  color: var(--danger);
+}
+
+.formActions {
+  display: flex;
+  gap: 8px;
+}
+
+.formHint {
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+  line-height: var(--leading-relaxed);
+}
