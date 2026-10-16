@@ -1,0 +1,12 @@
+.root {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.summary {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}

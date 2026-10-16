@@ -1,0 +1,104 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg-elevated);
+}
+
+.card {
+  width: min(400px, 100%);
+  padding: 28px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: var(--font-sm);
+}
+
+.brandDot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.title {
+  margin-top: 20px;
+  font-size: var(--font-xl);
+  font-weight: 700;
+}
+
+.subtitle {
+  margin-top: 4px;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.error {
+  margin-top: 16px;
+  padding: 8px 12px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs);
+  line-height: var(--leading-relaxed);
+}
+
+.form {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.passwordWrap {
+  position: relative;
+}
+
+.eye {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.eye:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.demoHint {
+  margin-top: 20px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.demoTitle {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.demoHint ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: disc;
+  padding-left: 16px;
+}

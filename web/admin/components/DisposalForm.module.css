@@ -1,0 +1,104 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.timeRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.impact {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--warning-soft);
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.impactIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--warning);
+}
+
+.impactTitle {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.impactList {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---------- 执行结果 ---------- */
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resultsSummary {
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.resultList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.resultItem {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs);
+}
+
+.resultOk {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--success);
+}
+
+.resultFail {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.resultLabel {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.resultError {
+  flex-shrink: 0;
+  color: var(--danger);
+}
+
+.resultNote {
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+  line-height: var(--leading-relaxed);
+}

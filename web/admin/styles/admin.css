@@ -1,0 +1,96 @@
+/**
+ * 管理后台全局样式
+ *
+ * 只放“跨模块复用”的基础规则；组件级样式一律走同名 module.css。
+ * 设计令牌（颜色 / 字号 / 圆角 / 动效）全部来自 src/styles/tokens.css，
+ * 在 main.tsx 中先行引入 —— 后台与客户端共用同一套皮肤。
+ */
+
+/* ID / 编号类文本（任务号、处置记录号、日志号） */
+.admin-id {
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+}
+
+/* 单行截断 */
+.admin-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 两行截断（内容预览） */
+.admin-clamp2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 危险操作的红色文字按钮（撤销 / 删除确认） */
+.admin-text-danger {
+  color: var(--danger);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.admin-text-danger:hover {
+  text-decoration: underline;
+}
+
+.admin-text-danger:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* 表格内联操作按钮 */
+.admin-text-action {
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.admin-text-action:hover {
+  text-decoration: underline;
+}
+
+.admin-text-action:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* 敏感媒体遮罩（审核视图默认模糊，悬停临时解除） */
+.admin-sensitive {
+  position: relative;
+  filter: blur(14px);
+  transition: filter var(--dur-base) var(--ease-out);
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-sensitive:hover,
+.admin-sensitive:focus-visible {
+  filter: none;
+}
+
+.admin-sensitive-mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: var(--font-sm);
+  border-radius: var(--radius-md);
+  pointer-events: none;
+}

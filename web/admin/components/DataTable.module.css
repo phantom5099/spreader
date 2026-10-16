@@ -1,0 +1,73 @@
+.wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+
+.table th {
+  text-align: left;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  white-space: nowrap;
+}
+
+.table td {
+  vertical-align: middle;
+}
+
+.cell {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.table th.cell {
+  border-top: none;
+}
+
+.right {
+  text-align: right;
+}
+
+.checkCell {
+  width: 36px;
+  padding-right: 0;
+}
+
+.checkCell input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
+  background: var(--bg-hover);
+}
+
+.selected {
+  background: var(--accent-soft);
+}
+
+.selected:hover {
+  background: var(--accent-soft);
+}
+
+.empty {
+  padding: 40px 16px;
+  text-align: center;
+  font-size: var(--font-sm);
+  color: var(--text-tertiary);
+}

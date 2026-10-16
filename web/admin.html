@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="data:," />
+    <title>spreader 管理后台</title>
+    <script>
+      (function () {
+        try {
+          var root = document.documentElement;
+          var mode = localStorage.getItem('spreader.theme.v1') || 'system';
+          var dark =
+            mode === 'dark' ||
+            (mode === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) root.setAttribute('data-theme', 'dark');
+          root.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {
+          /* localStorage 不可用时保持默认亮色 */
+        }
+      })();
+    </script>
+    <style>
+      /* 首帧兜底色，避免 CSS 加载前的白/黑闪烁 */
+      html {
+        background: #fff;
+      }
+      html[data-theme='dark'] {
+        background: #0a0a0a;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/admin/main.tsx"></script>
+  </body>
+</html>
