@@ -28,6 +28,9 @@ jobs:
       - uses: bufbuild/buf-setup-action@v1
         with:
           version: ${{ env.BUF_VERSION }}
+          # 传 token：action 会调 GitHub API 取 release 信息，匿名调用受共享 runner IP
+          # 60 次/时限流（此前 "API rate limit exceeded" 即来源于此）
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-go@v5
         with:
@@ -39,7 +42,14 @@ jobs:
 
       - name: Check breaking changes (pull requests only)
         if: github.event_name == 'pull_request'
-        run: buf breaking --against '.git#branch=origin/${{ github.base_ref }}'
+        run: |
+          # 基线分支的 api/ 模块尚无任何 proto 时（首个 proto PR），against 侧构建报
+          # "had no .proto files"——破坏性变更无从谈起，跳过；基线出现 proto 后恢复严格检查。
+          if git ls-tree -r --name-only origin/${{ github.base_ref }} -- api/ | grep -q '\.proto$'; then
+            buf breaking --against '.git#branch=origin/${{ github.base_ref }}'
+          else
+            echo "基线 ${{ github.base_ref }} 的 api/ 无 .proto，跳过 breaking 检查（首个 proto PR）"
+          fi
 
       - name: Install protoc plugins
         run: |
