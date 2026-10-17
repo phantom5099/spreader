@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package identity.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/phantom5099/spreader/api/identity/v1;v1";
+
+// LoginType 登录方式。
+enum LoginType {
+  LOGIN_TYPE_UNSPECIFIED = 0;
+  LOGIN_TYPE_PHONE_OTP = 1;
+  LOGIN_TYPE_EMAIL_OTP = 2;
+  LOGIN_TYPE_PASSWORD = 3;
+  LOGIN_TYPE_THIRD_PARTY = 4; // 具体平台由凭据内 provider 传参：wechat_mock（v1）/ 真实平台接入后追加
+}
+
+// User 登录响应与 GetMe 返回的账号视图。
+message User {
+  string id = 1;
+  string phone = 2; // E.164，未绑定则空
+  string email = 3; // 未绑定则空
+  string nickname = 4;
+  string avatar_url = 5;
+  string status = 6; // ACTIVE / RESTRICTED / BANNED / ...
+}
+
+// PhoneOtpCredential 手机验证码凭据。nation 为用户选择的区号种类，业务层按其归一化为 E.164。
+message PhoneOtpCredential {
+  string nation = 1;
+  string phone = 2;
+  string code = 3;
+}
+
+// EmailOtpCredential 邮箱验证码凭据。
+message EmailOtpCredential {
+  string email = 1;
+  string code = 2;
+}
+
+// PasswordCredential 口令凭据。identifier 手机/邮箱自动判别。
+message PasswordCredential {
+  string identifier = 1;
+  string password = 2;
+}
+
+// ThirdPartyCredential 第三方登录凭据。
+message ThirdPartyCredential {
+  string provider = 1; // wechat_mock（v1）| 真实平台接入后追加
+  string code = 2;     // 授权码（网页回跳 / 端上 SDK 直取）
+  string state = 3;    // web 流程防 CSRF（服务端 authorize 签发、Redis 校验、一次性）
+  string platform = 4; // app | mini_program | web
+}
+
+message SendOtpRequest {
+  string destination = 1; // 手机号（原始输入，随 nation 归一）或邮箱
+  string channel = 2;     // phone | email
+  string scene = 3;       // login | reset_password | bind_phone | ...
+  string nation = 4;      // channel=phone 时必填：用户选择的区号种类
+  string captcha_token = 5; // 触发式策略要求时必填
+}
+
+message SendOtpResponse {
+  int64 cooldown_seconds = 1; // 本次发送后的冷却秒数
+}
+
+message LoginRequest {
+  LoginType type = 1;
+  oneof credential {
+    PhoneOtpCredential phone_otp = 2;
+    EmailOtpCredential email_otp = 3;
+    PasswordCredential password = 4;
+    ThirdPartyCredential third_party = 5;
+  }
+  string device_id = 6;
+  string captcha_token = 7; // 人机校验凭据（challenge_id + answer + 轨迹元数据；触发式策略要求时必填）
+}
+
+message LoginResponse {
+  User user = 1;
+  bool is_new_user = 2;
+  bool onboarding_required = 3; // 服务端按资料空缺实时推导（昵称/头像不强制）
+  string access_token = 4;
+  string refresh_token = 5;
+  int64 expires_in = 6;   // AT 有效期（秒）
+  string token_type = 7;  // Bearer
+}
+
+message IssueCaptchaRequest {
+  string scene = 1;     // login | otp_send | ...
+  string device_id = 2; // ChallengeRequest 契约字段：风控信号
+}
+
+message CaptchaChallenge {
+  string challenge_id = 1; // 服务端一次性 token
+  string kind = 2;         // text | turnstile | ...
+  string payload = 3;      // 各 kind 自解释（如 base64 图片 / 文本题目）
+  int64 expires_in = 4;
+}
+
+message IssueCaptchaResponse {
+  CaptchaChallenge challenge = 1;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;
+  string token_type = 4;
+}
+
+message LogoutRequest {}
+
+message LogoutResponse {}
+
+message GetMeRequest {}
+
+message GetMeResponse {
+  User user = 1;
+  bool onboarding_required = 2;
+}
+
+message ThirdPartyAuthorizeRequest {
+  string provider = 1; // wechat_mock（v1）
+  string platform = 2; // web 流程需要 state；端上 SDK 直取 code 不经过此步
+}
+
+message ThirdPartyAuthorizeResponse {
+  string authorization_url = 1; // 平台授权页地址（携带服务端签发的一次性 state）
+}
+
+message ThirdPartyCallbackRequest {
+  string state = 1;
+  string code = 2;
+}
+
+message ThirdPartyCallbackResponse {
+  string code = 3; // 一次性授权码，前端携其调用统一 Login（type=THIRD_PARTY）
+}
+
+// IdentityService 统一登录入口：策略模式按 type 分流；新增登录方式只增策略实现。
+service IdentityService {
+  // SendOtp 发送验证码。发送不是登录动作：限流维度、重发语义、幂等要求均与登录不同。
+  rpc SendOtp(SendOtpRequest) returns (SendOtpResponse) {
+    option (google.api.http) = { post: "/v1/auth/otp:send" body: "*" };
+  }
+  // Login 统一登录入口（type 分流，策略模式）。
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = { post: "/v1/auth/login" body: "*" };
+  }
+  // IssueCaptcha 预取人机验证挑战：otp:send 触发风控时也需前置校验。
+  rpc IssueCaptcha(IssueCaptchaRequest) returns (IssueCaptchaResponse) {
+    option (google.api.http) = { post: "/v1/auth/captcha:issue" body: "*" };
+  }
+  // RefreshToken 刷新 AT：RT 轮换 + 重放检测（与 RT 会话模型绑定）。
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse) {
+    option (google.api.http) = { post: "/v1/auth/token:refresh" body: "*" };
+  }
+  // Logout 登出当前会话（天然幂等）。
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {
+    option (google.api.http) = { delete: "/v1/auth/session" };
+  }
+  // GetMe 当前账号（含 onboarding_required）：登录后引导资料完善，仅提示不拦截。
+  rpc GetMe(GetMeRequest) returns (GetMeResponse) {
+    option (google.api.http) = { get: "/v1/me" };
+  }
+  // ThirdPartyAuthorize 签发一次性 state → 返回第三方授权页地址（web 流程第一步）。
+  rpc ThirdPartyAuthorize(ThirdPartyAuthorizeRequest) returns (ThirdPartyAuthorizeResponse) {
+    option (google.api.http) = { get: "/v1/auth/thirdparty/authorize" };
+  }
+  // ThirdPartyCallback 第三方授权完成回跳：校验 state → 返回一次性 code 给前端调统一 Login。
+  rpc ThirdPartyCallback(ThirdPartyCallbackRequest) returns (ThirdPartyCallbackResponse) {
+    option (google.api.http) = { get: "/v1/auth/thirdparty/callback" };
+  }
+}

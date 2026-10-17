@@ -56,6 +56,15 @@ build-%: ## 编译指定服务，如 make build-identity
 	@test -d app/$* || { echo "服务 app/$* 不存在"; exit 1; }
 	go build ./app/$*/...
 
+.PHONY: run-identity
+run-identity: ## 本地运行 identity 服务（先 make compose-up + make env；凭据取自 .env）
+	@test -f .env && { set -a; . ./.env; set +a; } || echo "提示：无 .env，使用内置开发默认值"
+	export IDENTITY_PG_DSN="$${IDENTITY_PG_DSN:-$${DATABASE_DSN:-postgres://spreader:spreader@127.0.0.1:15432/spreader?sslmode=disable}}"
+	export IDENTITY_JWT_SECRET="$${IDENTITY_JWT_SECRET:-dev-only-jwt-secret-32bytes-min}"
+	export IDENTITY_OTP_PEPPER="$${IDENTITY_OTP_PEPPER:-dev-only-otp-pepper}"
+	export IDENTITY_ARGON_PEPPER="$${IDENTITY_ARGON_PEPPER:-dev-only-argon-pepper}"
+	go run ./app/identity/cmd/identity -conf app/identity/configs/identity.yaml
+
 .PHONY: test
 test: ## 运行全部测试
 	go test ./...
