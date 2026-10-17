@@ -17,7 +17,7 @@ import (
 type Config struct {
 	TTLSeconds       int64 // 验证码有效期 300s
 	CodeLength       int   // 6
-	CooldownSeconds  int64 // 发送冷却 60s（产品承诺硬指标）
+	CooldownSeconds  int64 // 发送冷却 60s
 	DailyLimit       int64 // 单号码日额度
 	PerIPPerHour     int64
 	PerDevicePerHour int64
@@ -26,13 +26,13 @@ type Config struct {
 	SceneIsolation   []string // 场景白名单：非白名单 scene 直接拒绝（防挑战挪用/键空间污染）
 }
 
-// Store 状态存储（redis 实现）：键由本域按 §5.2 规约构造，实现只执行原语。
+// Store 状态存储（redis 实现）
 type Store interface {
 	SaveCode(ctx context.Context, key, val string, ttlSeconds int64) error
 	// GetCode 读取（不消费）；ErrNotFound = 不存在/过期。
 	GetCode(ctx context.Context, key string) (string, error)
 	DeleteCode(ctx context.Context, key string) error
-	// ConsumeIfMatch Lua 原子「比对相等才删除」：防并发同码双过（§4.3 消费不变量）。
+	// ConsumeIfMatch Lua 原子「比对相等才删除」：防并发同码双过。
 	// 返回 matched；键不存在返回 false。
 	ConsumeIfMatch(ctx context.Context, key, expect string) (bool, error)
 	// Incr 计数 +1；键首次创建时设置 TTL（expire-once）。
@@ -77,7 +77,7 @@ func NewService(store Store, router *Router, cfg Config) *Service {
 	return &Service{store: store, router: router, cfg: cfg}
 }
 
-// —— 键构造（§5.2 Redis 键规约，键由本域拥有）——
+// —— 键构造——
 
 func codeKey(scene, channel, dest string) string {
 	return fmt.Sprintf("iam:otp:code:%s:%s:%s", scene, channel, dest)

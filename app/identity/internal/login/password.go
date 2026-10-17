@@ -76,7 +76,7 @@ func (p Pepper) DummyHashPHC() string {
 	return "$argon2id$v=19$m=19456,t=2,p=1$ZHVtbXlzYWx0ZHVtbXk$2lF5FRtSCv9rsEClMTnpnFzTpFbec9WVPJ4KLDL9bHo"
 }
 
-// weakPasswords 内置 Top 弱口令黑名单（纯内存查表，0 外部依赖；§4.4）。
+// weakPasswords 内置 Top 弱口令黑名单（纯内存查表，0 外部依赖）。
 // 覆盖泄露语料头部高频口令；规模化后接 HIBP 语料或下载版全量库。
 var weakPasswords = map[string]struct{}{
 	"123456": {}, "password": {}, "123456789": {}, "12345678": {}, "12345": {},

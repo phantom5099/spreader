@@ -141,7 +141,7 @@ func (s *OTPStore) DeleteCode(ctx context.Context, key string) error {
 	return s.c.rdb.Del(ctx, key).Err()
 }
 
-// consumeIfMatchScript Lua 原子「值相等才删除」：防并发同码双过（§4.3 消费不变量）。
+// consumeIfMatchScript Lua 原子「值相等才删除」：防并发同码双过。
 var consumeIfMatchScript = redis.NewScript(
 	`if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("DEL", KEYS[1]) else return 0 end`)
 

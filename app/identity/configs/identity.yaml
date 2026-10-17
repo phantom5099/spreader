@@ -25,7 +25,7 @@ jwt:
 otp:
   ttl_seconds: 300                    # 验证码有效期
   code_length: 6
-  cooldown_seconds: 60                # 发送冷却（产品承诺硬指标）
+  cooldown_seconds: 60                # 发送冷却
   daily_limit: 20                     # 单号码日额度
   per_ip_per_hour: 10
   per_device_per_hour: 10

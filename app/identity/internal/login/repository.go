@@ -44,7 +44,7 @@ type LoginEvent struct {
 	Reason           string
 	IP               string
 	DeviceID         string
-	Captcha          captchaAudit // 人机验证审计（§4.5 不变量 5：challenge_id/kind/结果入审计）
+	Captcha          captchaAudit // 人机验证审计
 }
 
 // EventPublisher 事件发布（Kafka 实现在 platform/kafka）。发布永不阻塞登录：实现内吞错并记日志。

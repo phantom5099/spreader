@@ -13,7 +13,7 @@ import (
 	"github.com/phantom5099/spreader/app/identity/internal/login"
 )
 
-// 主题（§5.3）：消费方 = 通知/信息流/搜索/风控/realtime。
+// 主题：消费方 = 通知/信息流/搜索/风控/realtime。
 const (
 	TopicUserCreated    = "iam.user.created"
 	TopicLoginSucceeded = "iam.login.succeeded"
