@@ -237,9 +237,9 @@ var (
 	_ v1.IdentityServiceServer     = (*Handler)(nil)
 )
 
-// ── 人机验证的传输形状（本层专属；领域层只认 Challenge/ChallengeResponse，§4.5）──
+// ── 人机验证的传输形状）──
 
-// captchaChallengeDTO problem+json 错误体扩展成员 challenge 的形状（与 proto v1.CaptchaChallenge 同形）。
+// captchaChallengeDTO problem+json 错误体扩展成员 challenge 的形状）。
 type captchaChallengeDTO struct {
 	ChallengeID string `json:"challenge_id"`
 	Kind        string `json:"kind"` // selfhosted | turnstile | ...

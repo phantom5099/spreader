@@ -30,7 +30,7 @@ func (None) Verify(context.Context, *login.ChallengeResponse) (*login.ChallengeR
 	return &login.ChallengeResult{Passed: true}, nil
 }
 
-// Selfhosted 自托管算式挑战：Payload=题目文本（**答案绝不在内**，§4.5 安全不变量），
+// Selfhosted 自托管算式挑战：Payload=题目文本（**答案绝不在内**），
 // 答案只存服务端（Redis 短 TTL）；单挑战尝试上限；签发受 IP 频控。
 type Selfhosted struct {
 	store          *redis.Client
@@ -84,7 +84,7 @@ func (s *Selfhosted) Verify(ctx context.Context, resp *login.ChallengeResponse) 
 		return failResult(login.FailAttemptsExceeded), nil
 	}
 	if strings.EqualFold(strings.TrimSpace(string(resp.Answer)), stored) {
-		// 通过即 Lua 原子消费（§4.5 一次性不变量）；竞争失败按过期处理。
+		// 通过即 Lua 原子消费；竞争失败按过期处理。
 		ok, err := s.store.ConsumeChallengeIfMatch(ctx, resp.ChallengeID, stored)
 		if err != nil {
 			return nil, err

@@ -115,7 +115,7 @@ func run() int {
 	publisher := kafka.NewPublisher(cfg.Kafka.Brokers, log)
 	defer func() { _ = publisher.Close() }()
 	go kafka.NewAuditConsumer(cfg.Kafka.Brokers, "identity-audit", auditWriterAdapter{db}, log).Run(ctx)
-	go func() { // 过期数据清理（D20/N7）：每 6 小时一轮
+	go func() { // 过期数据清理：每 6 小时一轮
 		t := time.NewTicker(6 * time.Hour)
 		defer t.Stop()
 		for {

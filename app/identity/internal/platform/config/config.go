@@ -22,7 +22,7 @@ type Config struct {
 		DSNEnv string `yaml:"dsn_env"` // 真实 DSN 走环境变量
 	}
 	Redis struct {
-		Mode       string   `yaml:"mode"`        // standalone | cluster | sentinel（§5.2：须多副本共享）
+		Mode       string   `yaml:"mode"`        // standalone | cluster | sentinel
 		Addrs      []string `yaml:"addrs"`       // standalone 1 个；cluster/sentinel 填全部节点
 		MasterName string   `yaml:"master_name"` // 仅 sentinel 必填
 		Password   string   `yaml:"password"`

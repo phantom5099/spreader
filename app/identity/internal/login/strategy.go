@@ -16,7 +16,7 @@ type LoginInput struct {
 	Password   string
 	ThirdParty ThirdPartyCredential
 	DeviceID   string
-	Captcha    *ChallengeResponse // 已由 handler 解码；nil = 未出示（§4.5）
+	Captcha    *ChallengeResponse // 已由 handler 解码；nil = 未出示
 	IP         string
 }
 
