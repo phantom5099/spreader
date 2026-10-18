@@ -71,6 +71,6 @@ func WithAuthInfo(ctx context.Context, info *AuthInfo) context.Context {
 
 // AuthInfoFrom 读取鉴权信息；未鉴权返回 nil。
 func AuthInfoFrom(ctx context.Context) *AuthInfo {
-	info, _ := ctx.Value(authInfoKey).(*AuthInfo)
+	info, _ := ctx.Value(authInfoKey).(*AuthInfo) // 中间件未写入 = 未鉴权，返回 nil 由路由层 401
 	return info
 }

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -53,7 +54,11 @@ func (s *Selfhosted) Kind() login.CaptchaKind { return login.CaptchaKindSelfhost
 // Issue 实现 login.HumanVerifier：算式题下发（答案服务端持有），签发计数。
 func (s *Selfhosted) Issue(ctx context.Context, req *login.ChallengeRequest) (*login.Challenge, error) {
 	if s.issuePerIPHour > 0 && req.ClientIP != "" {
-		if n, err := s.store.IncrIssue(ctx, req.ClientIP, req.DeviceID, 3600); err == nil && n > s.issuePerIPHour {
+		n, err := s.store.IncrIssue(ctx, req.ClientIP, req.DeviceID, 3600)
+		if err != nil {
+			return nil, err // 签发频控不可用：fail-closed（挑战轰炸风险）
+		}
+		if n > s.issuePerIPHour {
 			return nil, login.ETooManyAttempts()
 		}
 	}
@@ -79,7 +84,11 @@ func (s *Selfhosted) Verify(ctx context.Context, resp *login.ChallengeResponse) 
 	if err != nil { // 不存在/过期：业务失败结果而非错误
 		return failResult(login.FailExpired), nil //nolint:nilerr // 过期是判定结果，不是基础设施故障
 	}
-	if n, err := s.store.IncrChallengeAttempts(ctx, resp.ChallengeID, s.ttlSec); err == nil && int(n) > s.maxAttempts {
+	n, aerr := s.store.IncrChallengeAttempts(ctx, resp.ChallengeID, s.ttlSec)
+	if aerr != nil {
+		return nil, aerr // 尝试计数不可用：fail-closed（上限失效即挑战可无限重试）
+	}
+	if int(n) > s.maxAttempts {
 		_ = s.store.DeleteChallenge(ctx, resp.ChallengeID)
 		return failResult(login.FailAttemptsExceeded), nil
 	}
@@ -104,8 +113,9 @@ func failResult(reason login.CaptchaFailReason) *login.ChallengeResult {
 
 // Policy 触发式策略：命中任一阈值即要求挑战（阈值 0 = 该维度不触发）。
 type Policy struct {
-	cfg      PolicyCfg
 	counters login.ChallengeCounters
+	log      *slog.Logger
+	cfg      PolicyCfg
 }
 
 // PolicyCfg 阈值。
@@ -116,31 +126,48 @@ type PolicyCfg struct {
 }
 
 // NewPolicy 构建。
-func NewPolicy(cfg PolicyCfg, counters login.ChallengeCounters) *Policy {
-	return &Policy{cfg: cfg, counters: counters}
+func NewPolicy(cfg PolicyCfg, counters login.ChallengeCounters, log *slog.Logger) *Policy {
+	return &Policy{cfg: cfg, counters: counters, log: log}
 }
 
-// Evaluate 实现 login.ChallengePolicy。
+// Evaluate 实现 login.ChallengePolicy：otp_send 场景查 IP/设备的发码速率，
+// login 场景查账号的密码失败数，任一维度命中阈值即要求挑战（阈值 0 = 该维度关闭）。
+// 计数故障按动作成本分流：otp_send fail-closed（短信轰炸是真金白银损失，且 Verify 同源不可用、拒绝发送无额外损失）；
 func (p *Policy) Evaluate(ctx context.Context, sc login.SceneContext) (bool, error) {
 	if sc.Scene == login.SceneOTPSend {
 		if p.cfg.OTPSendPerIPPerHour > 0 && sc.IP != "" {
-			if n, err := p.counters.OTPSentFromIP(ctx, sc.IP); err == nil && n > p.cfg.OTPSendPerIPPerHour {
+			if n, err := p.counters.OTPSentFromIP(ctx, sc.IP); err != nil {
+				p.counterErr("otp_sent_from_ip", err)
+				return false, login.EChannelUnavailable() // fail-closed：宁可不发
+			} else if n > p.cfg.OTPSendPerIPPerHour {
 				return true, nil
 			}
 		}
 		if p.cfg.OTPSendPerDevicePerHour > 0 && sc.DeviceID != "" {
-			if n, err := p.counters.OTPSentFromDevice(ctx, sc.DeviceID); err == nil && n > p.cfg.OTPSendPerDevicePerHour {
+			if n, err := p.counters.OTPSentFromDevice(ctx, sc.DeviceID); err != nil {
+				p.counterErr("otp_sent_from_device", err)
+				return false, login.EChannelUnavailable() // fail-closed：宁可不发
+			} else if n > p.cfg.OTPSendPerDevicePerHour {
 				return true, nil
 			}
 		}
 		return false, nil
 	}
 	if p.cfg.LoginFailPerAccount > 0 && sc.Identifier != "" {
-		if n, err := p.counters.PasswordFailsOf(ctx, sc.Identifier); err == nil && n >= p.cfg.LoginFailPerAccount {
+		if n, err := p.counters.PasswordFailsOf(ctx, sc.Identifier); err != nil {
+			p.counterErr("password_fails", err)
+		} else if n >= p.cfg.LoginFailPerAccount {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+// counterErr 计数读取失败的统一出口：告警（不中断判定）。
+func (p *Policy) counterErr(op string, err error) {
+	if p.log != nil {
+		p.log.Warn("captcha policy counter read failed; fail-open", "op", op, "err", err)
+	}
 }
 
 func randInt(limit int) int {

@@ -96,7 +96,7 @@ func newTestIssuer() (*Issuer, *fakeStore, *fakeRev, *fakeEvents) {
 		ATSecret: "unit-test-secret",
 		ATTTL:    15 * time.Minute,
 		RTTTL:    24 * time.Hour,
-	})
+	}, nil)
 	return iss, store, rev, ev
 }
 

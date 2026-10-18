@@ -140,7 +140,7 @@ func run() int {
 		ATSecret: jwtSecret,
 		ATTTL:    time.Duration(cfg.JWT.ATTTLSec) * time.Second,
 		RTTTL:    time.Duration(cfg.JWT.RTTTLSec) * time.Second,
-	})
+	}, log)
 
 	// ── 验证码域 ──────────────────────────────────────────────
 	otpPepper := config.Env(cfg.OTP.PepperEnv)
@@ -154,17 +154,18 @@ func run() int {
 		GlobalPerMinute:  cfg.OTP.GlobalPerMinute,
 		Pepper:           otpPepper,
 		SceneIsolation:   cfg.OTP.SceneIsolation,
-	})
+	}, log)
 
 	// ── 第三方 provider 注册表──
 	providers := buildProviders(cfg, cache, production, log)
 
 	// ── 人机验证：policy 决定何时验，verifier 决定怎么验 ────────
-	policy := captcha.NewPolicy(captcha.PolicyCfg{
-		OTPSendPerIPPerHour:     cfg.Captcha.Policy.OTPSendPerIPPerHour,
-		OTPSendPerDevicePerHour: cfg.Captcha.Policy.OTPSendPerDevicePerHour,
-		LoginFailPerAccount:     cfg.Captcha.Policy.LoginFailPerAccount,
-	}, cache)
+	policy := captcha.NewPolicy( // 计数读失败 fail-open + 告警，见 Policy.Evaluate
+		captcha.PolicyCfg{
+			OTPSendPerIPPerHour:     cfg.Captcha.Policy.OTPSendPerIPPerHour,
+			OTPSendPerDevicePerHour: cfg.Captcha.Policy.OTPSendPerDevicePerHour,
+			LoginFailPerAccount:     cfg.Captcha.Policy.LoginFailPerAccount,
+		}, cache, log)
 	var verifier login.HumanVerifier
 	switch cfg.Captcha.Verifier {
 	case "", "none":
@@ -205,6 +206,7 @@ func run() int {
 		Verifier:     verifier,
 		FailGuard:    redis.NewCaptchaFailStore(cache),
 		ThirdParties: redis.NewThirdPartyStore(cache),
+		Log:          log,
 		Providers:    providers,
 		Cfg: login.Config{
 			StateTTLSeconds: 600,

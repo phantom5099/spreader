@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 )
 
 // OTPVerifier 登录域对验证码校验的窄接口（otp 域实现，cmd/ 注入）。
@@ -53,6 +54,7 @@ type Deps struct {
 	FailGuard    CaptchaFailGuard
 	ThirdParties ThirdPartyStore
 	Providers    ThirdPartyRegistry
+	Log          *slog.Logger
 	Cfg          Config
 }
 
@@ -68,15 +70,31 @@ type Service struct {
 	failGuard  CaptchaFailGuard
 	tpStore    ThirdPartyStore
 	providers  ThirdPartyRegistry
+	log        *slog.Logger
 	cfg        Config
+}
+
+// warn 降级路径的统一出口：login 场景的计数/锁定故障按 fail-open 降级，但必须告警不静默。
+func (s *Service) warn(msg string, err error) {
+	if s.log != nil {
+		s.log.Warn(msg, "err", err)
+	}
 }
 
 func NewService(d Deps) *Service {
 	return &Service{
-		strategies: d.Strategies, users: d.Users, sessions: d.Sessions,
-		events: d.Events, otp: d.OTP, policy: d.Policy, verifier: d.Verifier,
-		failGuard: d.FailGuard,
-		tpStore:   d.ThirdParties, providers: d.Providers, cfg: d.Cfg,
+		strategies: d.Strategies,
+		users:      d.Users,
+		sessions:   d.Sessions,
+		events:     d.Events,
+		otp:        d.OTP,
+		policy:     d.Policy,
+		verifier:   d.Verifier,
+		failGuard:  d.FailGuard,
+		tpStore:    d.ThirdParties,
+		providers:  d.Providers,
+		log:        d.Log,
+		cfg:        d.Cfg,
 	}
 }
 
@@ -178,14 +196,14 @@ func (s *Service) ThirdPartyCallback(ctx context.Context, state, code string) (s
 	return code, nil
 }
 
-// captchaAudit captcha 判定的审计视图（随登录事件入 login_audit，§4.5 不变量 5）。
+// captchaAudit captcha 判定的审计视图（随登录事件入 login_audit）。
 type captchaAudit struct {
 	ChallengeID string
 	Kind        string
 	Result      string // required | passed | failed
 }
 
-// captchaGate 触发式人机校验（§4.5 流程）：
+// captchaGate 触发式人机校验：
 // policy 判定是否需要 → 无 token/不可解码 → CAPTCHA_REQUIRED（现场签发挑战随错误下发）；
 // 有 token → Verify → 通过继续业务；不通过 → CAPTCHA_FAILED（携带新 Challenge 供重试）。
 func (s *Service) captchaGate(ctx context.Context, sc SceneContext, resp *ChallengeResponse) (captchaAudit, error) {
@@ -196,13 +214,21 @@ func (s *Service) captchaGate(ctx context.Context, sc SceneContext, resp *Challe
 	if !required {
 		return captchaAudit{}, nil
 	}
-	if locked, lerr := s.failGuard.Locked(ctx, sc); lerr == nil && locked {
+	locked, lerr := s.failGuard.Locked(ctx, sc)
+	if lerr != nil {
+		// 锁定状态不可知：按未锁定继续——告警不静默。
+		s.warn("captcha lock check failed; degrade as unlocked", lerr)
+	} else if locked {
 		// 锁定窗口内：验证路径整体拒绝（只拦人机验证路径，不影响其他入口）。
 		return captchaAudit{}, ECaptchaLocked()
 	}
 	if resp == nil {
-		// 未出示 token（或 handler 判定无效）→ 现场签发挑战随 CAPTCHA_REQUIRED 下发，省一次往返。
-		return captchaAudit{Result: "required"}, ECaptchaRequired(s.tryIssueChallenge(ctx, sc))
+		// 未出示 token → 现场签发挑战随 CAPTCHA_REQUIRED 下发，省一次往返；签发故障上抛 503。
+		ch, ierr := s.tryIssueChallenge(ctx, sc)
+		if ierr != nil {
+			return captchaAudit{}, ierr
+		}
+		return captchaAudit{Result: "required"}, ECaptchaRequired(ch)
 	}
 	res, verr := s.verifier.Verify(ctx, resp)
 	if verr != nil {
@@ -215,19 +241,29 @@ func (s *Service) captchaGate(ctx context.Context, sc SceneContext, resp *Challe
 	}
 	// 失败：记录计数（退避/冷却→锁定的输入），响应携带新 Challenge 供重试。
 	if s.failGuard != nil {
-		_, _ = s.failGuard.Fail(ctx, sc, s.cfg.CaptchaMaxFails)
+		if _, ferr := s.failGuard.Fail(ctx, sc, s.cfg.CaptchaMaxFails); ferr != nil {
+			s.warn("captcha fail counter write failed; lock ladder may lag", ferr)
+		}
 	}
 	audit.Result = "failed"
-	return audit, ECaptchaFailed(s.tryIssueChallenge(ctx, sc))
+	ch, ierr := s.tryIssueChallenge(ctx, sc)
+	if ierr != nil {
+		return captchaAudit{}, ierr
+	}
+	return audit, ECaptchaFailed(ch)
 }
 
-// tryIssueChallenge 现场签发挑战；verifier 不支持/基础设施故障时返回 nil（错误体不带挑战）。
-func (s *Service) tryIssueChallenge(ctx context.Context, sc SceneContext) *Challenge {
+// tryIssueChallenge 现场签发挑战：基础设施故障上抛（调用方终止流程返回 503）——
+// 签发不出挑战时 CAPTCHA_REQUIRED 无挑战对象是客户端死路，显式失败优于静默降级。
+func (s *Service) tryIssueChallenge(ctx context.Context, sc SceneContext) (*Challenge, error) {
 	ch, err := s.verifier.Issue(ctx, &ChallengeRequest{Scene: sc.Scene, ClientIP: sc.IP, DeviceID: sc.DeviceID})
 	if err != nil {
-		return nil
+		if errors.Is(err, ErrCaptchaNotSupported) {
+			return nil, EChannelUnavailable() // verifier=none 但 policy 触发：配置错位
+		}
+		return nil, err
 	}
-	return ch
+	return ch, nil
 }
 
 func firstNonEmpty(vs ...string) string {

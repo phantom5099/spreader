@@ -126,7 +126,7 @@ func (s *PasswordStrategy) VerifyCredential(ctx context.Context, in *LoginInput)
 	phc, err := s.d.Credentials.GetPasswordHash(ctx, ident)
 	if err != nil {
 		if IsNotFound(err) {
-			_ = s.d.Pepper.VerifyPassword(in.Password, s.d.Pepper.DummyHashPHC())
+			_ = s.d.Pepper.VerifyPassword(in.Password, s.d.Pepper.DummyHashPHC()) // 故意丢弃：仅取恒时耗时
 			return nil, false, EInvalidCredentials()
 		}
 		return nil, false, err
@@ -197,7 +197,7 @@ func (s *ThirdPartyStrategy) VerifyCredential(ctx context.Context, in *LoginInpu
 	}
 	// ① 应用级查找键 (provider, appid, external_id) 命中 → 老身份，直接进。
 	if row, ferr := s.d.ThirdParties.FindIdentity(ctx, ident.Provider, ident.AppID, ident.ExternalID); ferr == nil {
-		_ = s.d.ThirdParties.TouchIdentityLastLogin(ctx, ident.Provider, ident.AppID, ident.ExternalID)
+		_ = s.d.ThirdParties.TouchIdentityLastLogin(ctx, ident.Provider, ident.AppID, ident.ExternalID) // best-effort：失败不阻塞登录
 		u, uerr := s.d.Users.GetByID(ctx, row.UserID)
 		if uerr != nil {
 			return nil, false, uerr

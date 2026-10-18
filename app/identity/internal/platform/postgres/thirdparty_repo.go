@@ -28,7 +28,7 @@ func (p *Pool) FindIdentity(ctx context.Context, provider, appid, externalID str
 	}
 	var profile map[string]string
 	if len(profileRaw) > 0 {
-		_ = json.Unmarshal(profileRaw, &profile)
+		_ = json.Unmarshal(profileRaw, &profile) // best-effort：快照解析失败不阻塞身份读取
 	}
 	ident.Nickname = profile["nickname"]
 	ident.AvatarURL = profile["avatar_url"]

@@ -51,7 +51,7 @@ func (s *SMTP) Send(_ context.Context, to, code string) error {
 		return fmt.Errorf("smtp client: %w", err)
 	}
 	defer func() { _ = cl.Close() }()
-	if ok, _ := cl.Extension("AUTH"); ok {
+	if ok, _ := cl.Extension("AUTH"); ok { // 探测失败视作不支持 AUTH（后续命令自然报错）
 		if aerr := cl.Auth(smtp.PlainAuth("", s.cfg.Username, s.cfg.Password, s.cfg.Host)); aerr != nil {
 			return fmt.Errorf("smtp auth: %w", err)
 		}
@@ -102,7 +102,7 @@ func (m *Mail139) Send(_ context.Context, to, code string) error {
 		return fmt.Errorf("smtp client: %w", err)
 	}
 	defer func() { _ = cl.Close() }()
-	if ok, _ := cl.Extension("AUTH"); ok {
+	if ok, _ := cl.Extension("AUTH"); ok { // 探测失败视作不支持 AUTH（后续命令自然报错）
 		if aerr := cl.Auth(smtp.PlainAuth("", m.cfg.Username, m.cfg.Password, m.cfg.Host)); aerr != nil {
 			return fmt.Errorf("smtp auth: %w", err)
 		}

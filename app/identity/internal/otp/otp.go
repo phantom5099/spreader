@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/phantom5099/spreader/app/identity/internal/login"
@@ -71,20 +72,35 @@ type Service struct {
 	store  Store
 	router *Router
 	cfg    Config
+	log    *slog.Logger
 }
 
-func NewService(store Store, router *Router, cfg Config) *Service {
-	return &Service{store: store, router: router, cfg: cfg}
+func NewService(store Store, router *Router, cfg Config, log *slog.Logger) *Service {
+	return &Service{store: store, router: router, cfg: cfg, log: log}
+}
+
+// limitErr 频控读写失败的统一出口：告警（fail-closed 由调用方拒绝发送）。
+func (s *Service) limitErr(op string, err error) {
+	if s.log != nil {
+		s.log.Warn("otp rate limit store read failed; fail-closed", "op", op, "err", err)
+	}
 }
 
 // —— 键构造——
 
+// codeKey/attemptsKey 三段各有职责：scene 隔离（登录码不可挪用于重置密码，白名单外直接拒绝）、
+// channel 隔离（手机/邮箱的尝试预算互不侵占）、dest 用归一化后的全值（空格/大小写等异形输入落同一键，一次性与频控不可绕过）。
 func codeKey(scene, channel, dest string) string {
 	return fmt.Sprintf("iam:otp:code:%s:%s:%s", scene, channel, dest)
 }
+
+// attemptsKey 与 codeKey 同键形：错误尝试预算按 scene/channel/dest 精确隔离。
 func attemptsKey(scene, channel, dest string) string {
 	return fmt.Sprintf("iam:otp:attempts:%s:%s:%s", scene, channel, dest)
 }
+
+// cooldownKey/dailyKey/ipKey/deviceKey 只绑目的地或来源维度、不分 scene/channel：
+// 发送预算是对"这个号码/这个来源"的全局约束，换场景或换通道不能重置（防绕过冷却与日额度）。
 func cooldownKey(dest string) string { return "iam:otp:send:cooldown:" + dest }
 func dailyKey(dest string) string    { return "iam:otp:send:daily:" + dest }
 func ipKey(ip string) string         { return "iam:otp:send:ip:" + ip }
@@ -130,30 +146,55 @@ func (s *Service) Send(ctx context.Context, channel, dest, scene, ip, deviceID s
 	if !s.sceneAllowed(scene) {
 		return 0, login.EBadRequest("scene not allowed: " + scene)
 	}
-	if left, err := s.store.RemainingTTL(ctx, cooldownKey(dest)); err == nil && left > 0 {
+	if left, err := s.store.RemainingTTL(ctx, cooldownKey(dest)); err != nil {
+		s.limitErr("cooldown", err)
+		return 0, login.EChannelUnavailable() // fail-closed：频控不可用宁可不发
+	} else if left > 0 {
 		return left, login.EOtpSendTooFrequent()
 	}
 	if s.cfg.DailyLimit > 0 {
-		if n, err := s.store.Incr(ctx, dailyKey(dest), ttlUntilMidnight()); err == nil && n > s.cfg.DailyLimit {
+		n, err := s.store.Incr(ctx, dailyKey(dest), ttlUntilMidnight())
+		if err != nil {
+			s.limitErr("daily", err)
+			return 0, login.EChannelUnavailable()
+		}
+		if n > s.cfg.DailyLimit {
 			return 0, login.EOtpDailyLimitExceeded()
 		}
 	}
 	if s.cfg.PerIPPerHour > 0 && ip != "" {
-		if n, err := s.store.Incr(ctx, ipKey(ip), 3600); err == nil && n > s.cfg.PerIPPerHour {
+		n, err := s.store.Incr(ctx, ipKey(ip), 3600)
+		if err != nil {
+			s.limitErr("per_ip", err)
+			return 0, login.EChannelUnavailable()
+		}
+		if n > s.cfg.PerIPPerHour {
 			return 0, login.ETooManyAttempts()
 		}
 	}
 	if s.cfg.PerDevicePerHour > 0 && deviceID != "" {
-		if n, err := s.store.Incr(ctx, deviceKey(deviceID), 3600); err == nil && n > s.cfg.PerDevicePerHour {
+		n, err := s.store.Incr(ctx, deviceKey(deviceID), 3600)
+		if err != nil {
+			s.limitErr("per_device", err)
+			return 0, login.EChannelUnavailable()
+		}
+		if n > s.cfg.PerDevicePerHour {
 			return 0, login.ETooManyAttempts()
 		}
 	}
 	if s.cfg.GlobalPerMinute > 0 {
-		if n, err := s.store.Incr(ctx, globalKey, 60); err == nil && n > s.cfg.GlobalPerMinute {
+		n, err := s.store.Incr(ctx, globalKey, 60)
+		if err != nil {
+			s.limitErr("global", err)
+			return 0, login.EChannelUnavailable()
+		}
+		if n > s.cfg.GlobalPerMinute {
 			return 0, login.EOtpSendTooFrequent() // 熔断：整体降速
 		}
 	}
 
+	// 顺序依赖（第二道防线）：频控读失败已 fail-closed 拒绝发送；SaveCode 先于 router.Send
+	// 再兜一层——即便未来放宽频控失败策略，Redis 故障时也在短信发出前失败。
 	code := genCode(s.cfg.CodeLength)
 	if err := s.store.SaveCode(ctx, codeKey(scene, channel, dest), s.hmacCode(code), s.cfg.TTLSeconds); err != nil {
 		return 0, err
@@ -171,7 +212,7 @@ func (s *Service) Send(ctx context.Context, channel, dest, scene, ip, deviceID s
 // maxVerifyAttempts 校验失败尝试上限（与验证码同 TTL）。
 const maxVerifyAttempts = 5
 
-// sceneAllowed 场景白名单（§4.3 scene 隔离：登录码不能用于重置密码）。
+// sceneAllowed 场景白名单（scene 隔离：登录码不能用于重置密码）。
 func (s *Service) sceneAllowed(scene string) bool {
 	if len(s.cfg.SceneIsolation) == 0 {
 		return true

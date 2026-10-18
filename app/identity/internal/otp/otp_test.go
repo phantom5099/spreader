@@ -108,7 +108,7 @@ func newTestService() (*Service, *fakeStore, *fakeSender, *fakeSender) {
 		TTLSeconds: 300, CodeLength: 6, CooldownSeconds: 60,
 		DailyLimit: 5, PerIPPerHour: 100, PerDevicePerHour: 100,
 		GlobalPerMinute: 1000, Pepper: "test-pepper",
-	})
+	}, nil)
 	return svc, store, primary, fallback
 }
 

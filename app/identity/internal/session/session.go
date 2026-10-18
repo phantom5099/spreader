@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -80,11 +81,19 @@ type Issuer struct {
 	ver   VersionSource
 	ev    Events
 	cfg   Config
+	log   *slog.Logger
 	now   func() time.Time
 }
 
-func NewIssuer(store Store, rev RevocationStore, ver VersionSource, ev Events, cfg Config) *Issuer {
-	return &Issuer{store: store, rev: rev, ver: ver, ev: ev, cfg: cfg, now: time.Now}
+func NewIssuer(store Store, rev RevocationStore, ver VersionSource, ev Events, cfg Config, log *slog.Logger) *Issuer {
+	return &Issuer{store: store, rev: rev, ver: ver, ev: ev, cfg: cfg, log: log, now: time.Now}
+}
+
+// warn 降级路径的统一出口：Redis 读失败按既定语义降级（放行/回源 PG），但必须告警不静默。
+func (i *Issuer) warn(msg string, err error) {
+	if i.log != nil {
+		i.log.Warn(msg, "err", err)
+	}
 }
 
 func (i *Issuer) issueAT(ctx context.Context, userID string, ver int64, familyID string) (token, jti string, exp time.Time, err error) {
@@ -235,15 +244,26 @@ func (i *Issuer) VerifyAndAuthorize(ctx context.Context, bearer string) (*login.
 	if userID == "" || jti == "" {
 		return nil, ETokenInvalidMsg("invalid claims")
 	}
-	expAt := time.Unix(int64(claims["exp"].(float64)), 0)
+	// claims 形状由签发方保证（验签已过）；exp 缺失按无效令牌处理（jwt 库默认不强制 exp）
+	expF, expOK := claims["exp"].(float64)
+	if !expOK {
+		return nil, ETokenInvalidMsg("invalid claims")
+	}
+	expAt := time.Unix(int64(expF), 0)
 
-	revoked, err := i.rev.Revoked(ctx, jti)
-	if err == nil && revoked {
+	revoked, rerr := i.rev.Revoked(ctx, jti)
+	if rerr != nil {
+		i.warn("at revocation check failed; degrade as not revoked", rerr)
+	} else if revoked {
 		return nil, ETokenInvalidMsg("token revoked")
 	}
 	// token_version 比对：缓存 60s，miss 回源 PG。
 	ver := int64(verF)
-	if cached, hit, err := i.rev.TokenVersion(ctx, userID); err == nil && hit {
+	cached, hit, cerr := i.rev.TokenVersion(ctx, userID)
+	if cerr != nil {
+		i.warn("token_version cache read failed; fall back to PG", cerr)
+	}
+	if cerr == nil && hit {
 		if ver < cached {
 			return nil, ETokenInvalidMsg("token version outdated")
 		}
