@@ -1,0 +1,5 @@
+# 项目命名空间（kustomization 的 namespace 字段只做改写，不负责创建）
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spreader

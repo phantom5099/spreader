@@ -94,6 +94,12 @@ func (p *Pool) migrate(ctx context.Context) error {
 	return nil
 }
 
+// PGPoolStats 连接池快照（供 metrics 包 15s 采样成 Gauge）。
+func (p *Pool) PGPoolStats() (total, idle, acquired, limit int) {
+	st := p.p.Stat()
+	return int(st.TotalConns()), int(st.IdleConns()), int(st.AcquiredConns()), int(st.MaxConns())
+}
+
 // CleanupExpired 清理过期数据：过期 30 天的会话行 + 超过 12 个月的审计行
 // （§4.5 不变量/N7：审计保留 12 个月到期清理；会话稳态规模 = 活跃用户 × 设备数）。
 func (p *Pool) CleanupExpired(ctx context.Context) error {

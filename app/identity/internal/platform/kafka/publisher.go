@@ -11,6 +11,7 @@ import (
 	"github.com/segmentio/kafka-go"
 
 	"github.com/phantom5099/spreader/app/identity/internal/login"
+	"github.com/phantom5099/spreader/app/identity/internal/platform/metrics"
 )
 
 // 主题：消费方 = 通知/信息流/搜索/风控/realtime。
@@ -80,33 +81,57 @@ func (p *Publisher) publish(ctx context.Context, topic string, e *event) {
 
 // UserCreated 实现 login.EventPublisher：消费方=通知服务/信息流/搜索。
 func (p *Publisher) UserCreated(ctx context.Context, userID string) {
-	p.publish(ctx, TopicUserCreated, &event{Event: "user.created", UserID: userID})
+	metrics.BusinessEvent("user.created", "")
+	p.publish(ctx, TopicUserCreated, &event{
+		Event:  "user.created",
+		UserID: userID,
+	})
 }
 
 // LoginSucceeded 实现 login.EventPublisher：消费方=风控/通知（新设备提醒）。
 func (p *Publisher) LoginSucceeded(ctx context.Context, e *login.LoginEvent) {
+	metrics.BusinessEvent("login.succeeded", e.Reason)
 	p.publish(ctx, TopicLoginSucceeded, &event{
-		Event: "login.succeeded", UserID: e.UserID, LoginType: e.LoginType,
-		Identifier: e.IdentifierMasked, Result: e.Result, Reason: e.Reason,
-		IP: e.IP, DeviceID: e.DeviceID,
-		CaptchaChallengeID: e.Captcha.ChallengeID, CaptchaKind: e.Captcha.Kind, CaptchaResult: e.Captcha.Result,
+		Event:              "login.succeeded",
+		UserID:             e.UserID,
+		LoginType:          e.LoginType,
+		Identifier:         e.IdentifierMasked,
+		Result:             e.Result,
+		Reason:             e.Reason,
+		IP:                 e.IP,
+		DeviceID:           e.DeviceID,
+		CaptchaChallengeID: e.Captcha.ChallengeID,
+		CaptchaKind:        e.Captcha.Kind,
+		CaptchaResult:      e.Captcha.Result,
 	})
 }
 
 // LoginFailed 实现 login.EventPublisher：消费方=风控/告警（爆破识别，封禁联动输入）。
 func (p *Publisher) LoginFailed(ctx context.Context, e *login.LoginEvent) {
+	metrics.BusinessEvent("login.failed", e.Reason)
 	p.publish(ctx, TopicLoginFailed, &event{
-		Event: "login.failed", UserID: e.UserID, LoginType: e.LoginType,
-		Identifier: e.IdentifierMasked, Result: e.Result, Reason: e.Reason,
-		IP: e.IP, DeviceID: e.DeviceID,
-		CaptchaChallengeID: e.Captcha.ChallengeID, CaptchaKind: e.Captcha.Kind, CaptchaResult: e.Captcha.Result,
+		Event:              "login.failed",
+		UserID:             e.UserID,
+		LoginType:          e.LoginType,
+		Identifier:         e.IdentifierMasked,
+		Result:             e.Result,
+		Reason:             e.Reason,
+		IP:                 e.IP,
+		DeviceID:           e.DeviceID,
+		CaptchaChallengeID: e.Captcha.ChallengeID,
+		CaptchaKind:        e.Captcha.Kind,
+		CaptchaResult:      e.Captcha.Result,
 	})
 }
 
 // SessionRevoked 实现 login.EventPublisher / session.Events：realtime 关长连接。
 func (p *Publisher) SessionRevoked(ctx context.Context, userID, sessionID, familyID, reason string) {
+	metrics.BusinessEvent("session.revoked", reason)
 	p.publish(ctx, TopicSessionRevoked, &event{
-		Event: "session.revoked", UserID: userID, SessionID: sessionID,
-		FamilyID: familyID, Reason: reason,
+		Event:     "session.revoked",
+		UserID:    userID,
+		SessionID: sessionID,
+		FamilyID:  familyID,
+		Reason:    reason,
 	})
 }

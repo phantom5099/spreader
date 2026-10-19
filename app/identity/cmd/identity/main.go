@@ -7,7 +7,6 @@ import (
 	"flag"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -27,7 +26,9 @@ import (
 	"github.com/phantom5099/spreader/app/identity/internal/platform/config"
 	"github.com/phantom5099/spreader/app/identity/internal/platform/kafka"
 	"github.com/phantom5099/spreader/app/identity/internal/platform/mail"
+	"github.com/phantom5099/spreader/app/identity/internal/platform/metrics"
 	"github.com/phantom5099/spreader/app/identity/internal/platform/postgres"
+	"github.com/phantom5099/spreader/app/identity/internal/platform/protojsoncodec"
 	"github.com/phantom5099/spreader/app/identity/internal/platform/redis"
 	"github.com/phantom5099/spreader/app/identity/internal/platform/sms"
 	"github.com/phantom5099/spreader/app/identity/internal/session"
@@ -66,6 +67,7 @@ func main() {
 
 // run 装配并运行服务，返回进程退出码（defer 在此全部收敛）。
 func run() int {
+	protojsoncodec.Register()
 	confPath := flag.String("conf", "configs/identity.yaml", "config file path")
 	httpAddr := flag.String("http", "", "http listen address (overrides config)")
 	grpcAddr := flag.String("grpc", "", "grpc listen address (overrides config)")
@@ -112,6 +114,10 @@ func run() int {
 	}
 	defer func() { _ = cache.Close() }()
 
+	// ── 管理端点：/metrics + /debug/pprof（严禁公网；集群环境放宽给采集器）──
+	metrics.ServeAdmin(firstNonEmptyStr(cfg.Metrics.Addr, "127.0.0.1:9100"))
+	metrics.RegisterPGPool(func() (total, idle, acquired, limit int) { return db.PGPoolStats() })
+
 	publisher := kafka.NewPublisher(cfg.Kafka.Brokers, log)
 	defer func() { _ = publisher.Close() }()
 	go kafka.NewAuditConsumer(cfg.Kafka.Brokers, "identity-audit", auditWriterAdapter{db}, log).Run(ctx)
@@ -157,7 +163,7 @@ func run() int {
 	}, log)
 
 	// ── 第三方 provider 注册表──
-	providers := buildProviders(cfg, cache, production, log)
+	providers, mockProvider := buildProviders(cfg, cache, production, log)
 
 	// ── 人机验证：policy 决定何时验，verifier 决定怎么验 ────────
 	policy := captcha.NewPolicy( // 计数读失败 fail-open + 告警，见 Policy.Evaluate
@@ -191,7 +197,8 @@ func run() int {
 			FailWindowSec: cfg.Password.FailWindowSec,
 			LockSec:       cfg.Password.LockSec,
 		},
-		PwdGuard: cache,
+		PwdGuard:  cache,
+		Providers: providers,
 	})
 	for _, dt := range cfg.Login.DisabledTypes {
 		delete(strategies, dt) // 被配置停用的登录方式：Login 返回 UNSUPPORTED_LOGIN_TYPE
@@ -227,13 +234,17 @@ func run() int {
 	}
 	hs := khttp.NewServer(
 		khttp.Address(httpListen),
-		khttp.Middleware(login.AuthMiddleware(issuer)),
+		khttp.Middleware(metrics.Middleware(), login.AuthMiddleware(issuer)), // RED 在最外层，鉴权失败也计数
 		khttp.ErrorEncoder(problemEncoder()),
 	)
 	v1.RegisterIdentityServiceHTTPServer(hs, handler)
 	hs.Route("/v1/identity").GET("/ping", func(ctx khttp.Context) error {
 		return ctx.JSON(http.StatusOK, map[string]string{"service": "identity"})
 	})
+	if mockProvider != nil {
+		// mock 授权页/确认端点与业务同端口（public_base_url 即 identity 地址，回调地址天然一致）
+		thirdparty_mock.RegisterRoutes(hs.Route("/mock/oauth"), mockProvider, log)
+	}
 	gs := grpc.NewServer(
 		grpc.Address(grpcListen),
 		grpc.Middleware(login.AuthMiddleware(issuer)),
@@ -313,30 +324,15 @@ func buildChannelRouter(cfg *config.Config, log *slog.Logger) *otp.Router {
 	return otp.NewRouter(chains)
 }
 
-// startMockServer 启动 mock 第三方授权页的独立 dev HTTP 端点。
-func startMockServer(p *thirdparty_mock.Provider, base string, log *slog.Logger) {
-	u, err := url.Parse(base)
-	if err != nil || u.Host == "" {
-		log.Error("mock public_base_url invalid", "base", base)
-		return
-	}
-	mux := http.NewServeMux()
-	thirdparty_mock.RegisterRoutes(mux, p, log)
-	srv := &http.Server{Addr: u.Host, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
-	log.Info("mock oauth endpoints listening", "addr", u.Host)
-	if err := srv.ListenAndServe(); err != nil {
-		log.Error("mock server exit", "err", err)
-	}
-}
-
 // buildProviders 构建第三方 provider 注册表——与 buildChannelRouter 同构：
 // 实现归代码（platform/thirdparty 的各实现 + dev/thirdparty_mock），启用归配置。
 //
 // mock（wechat_mock）：开发期测试替身，双闸 = APP_ENV != production 且 allow_insecure_providers，
 // 生产启动时永不注册；真实平台接入时：实现 ThirdPartyIdentityProvider + 在标记处追加注册段，
 // 登录请求逐次携带 provider（策略模式的请求时分发），无需改此处结构。
-func buildProviders(cfg *config.Config, cache *redis.Client, production bool, log *slog.Logger) providerRegistry {
+func buildProviders(cfg *config.Config, cache *redis.Client, production bool, log *slog.Logger) (providerRegistry, *thirdparty_mock.Provider) {
 	providers := providerRegistry{}
+	var mockProvider *thirdparty_mock.Provider
 
 	// ── mock（wechat_mock）：双闸 ──
 	if !production && cfg.ThirdParty.AllowInsecureProviders {
@@ -347,13 +343,13 @@ func buildProviders(cfg *config.Config, cache *redis.Client, production bool, lo
 			CallbackURL:    cfg.ThirdParty.Mock.PublicBaseURL + "/v1/auth/thirdparty/callback",
 		}, redis.NewThirdPartyStore(cache))
 		providers[mock.Provider()] = mock
-		go startMockServer(mock, cfg.ThirdParty.Mock.PublicBaseURL, log)
+		mockProvider = mock
 		log.Info("mock thirdparty provider enabled (insecure, dev only)")
 	} else if cfg.ThirdParty.AllowInsecureProviders {
 		// 想开 mock 但环境是 production：双闸拦下，启动继续（仅无 mock 可用）。
 		log.Warn("mock provider blocked by double gate (APP_ENV=production)")
 	}
-	return providers
+	return providers, mockProvider
 }
 
 // problemEncoder 按 RFC 9457 输出 application/problem+json：

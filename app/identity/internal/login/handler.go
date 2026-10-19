@@ -26,7 +26,11 @@ type Handler struct {
 
 // NewHandler 构建。
 func NewHandler(svc *Service, users UserRepository, sessions SessionIssuer, verifier HumanVerifier) *Handler {
-	return &Handler{svc: svc, users: users, sessions: sessions, verifier: verifier}
+	return &Handler{svc: svc,
+		users:    users,
+		sessions: sessions,
+		verifier: verifier,
+	}
 }
 
 // MapError 领域错误 → kratos 错误（HTTP 状态 + IAM.* reason + retryable/challenge 元数据）。
@@ -142,8 +146,10 @@ func (h *Handler) RefreshToken(ctx context.Context, req *v1.RefreshTokenRequest)
 		return nil, MapError(err)
 	}
 	return &v1.RefreshTokenResponse{
-		AccessToken: access, RefreshToken: refresh,
-		ExpiresIn: expiresIn, TokenType: "Bearer",
+		AccessToken:  access,
+		RefreshToken: refresh,
+		ExpiresIn:    expiresIn,
+		TokenType:    "Bearer",
 	}, nil
 }
 

@@ -86,7 +86,15 @@ type Issuer struct {
 }
 
 func NewIssuer(store Store, rev RevocationStore, ver VersionSource, ev Events, cfg Config, log *slog.Logger) *Issuer {
-	return &Issuer{store: store, rev: rev, ver: ver, ev: ev, cfg: cfg, log: log, now: time.Now}
+	return &Issuer{
+		store: store,
+		rev:   rev,
+		ver:   ver,
+		ev:    ev,
+		cfg:   cfg,
+		log:   log,
+		now:   time.Now,
+	}
 }
 
 // warn 降级路径的统一出口：Redis 读失败按既定语义降级（放行/回源 PG），但必须告警不静默。
@@ -130,8 +138,12 @@ func (i *Issuer) Issue(ctx context.Context, userID string, ver int64, deviceID, 
 	now := i.now()
 	rtExp := now.Add(i.cfg.RTTTL)
 	if cerr := i.store.Create(ctx, &Session{
-		ID: family, UserID: userID, FamilyID: family,
-		DeviceID: deviceID, Platform: platform, RTHash: rtHash,
+		ID:            family,
+		UserID:        userID,
+		FamilyID:      family,
+		DeviceID:      deviceID,
+		Platform:      platform,
+		RTHash:        rtHash,
 		ExpiresAtUnix: rtExp.Unix(),
 	}); cerr != nil {
 		return "", "", 0, cerr

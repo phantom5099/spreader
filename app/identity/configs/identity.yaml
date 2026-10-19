@@ -82,3 +82,6 @@ sms:
 server:
   http_addr: 127.0.0.1:8000           # HTTP 监听地址（flag -http 可覆盖）
   grpc_addr: 127.0.0.1:9000           # gRPC 监听地址（flag -grpc 可覆盖）
+
+metrics:
+  addr: 127.0.0.1:9100                # 管理端点（/metrics + /debug/pprof）；Prometheus 容器采集时需 0.0.0.0

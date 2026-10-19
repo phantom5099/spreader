@@ -56,7 +56,11 @@ func New(ctx context.Context, o *Options) (*Client, error) {
 		if len(o.Addrs) > 0 {
 			addr = o.Addrs[0]
 		}
-		u = redis.NewClient(&redis.Options{Addr: addr, Password: o.Password, DB: o.DB})
+		u = redis.NewClient(&redis.Options{
+			Addr:     addr,
+			Password: o.Password,
+			DB:       o.DB,
+		})
 	default:
 		return nil, errors.New("unknown redis mode: " + o.Mode)
 	}
@@ -345,7 +349,7 @@ func (c *Client) ConsumeChallengeIfMatch(ctx context.Context, challengeID, expec
 	return n == 1, nil
 }
 
-// IncrChallengeAttempts 单挑战尝试计数（§4.5 FailAttemptsExceeded 依据）。
+// IncrChallengeAttempts 单挑战尝试计数。
 func (c *Client) IncrChallengeAttempts(ctx context.Context, challengeID string, ttlSeconds int64) (int64, error) {
 	return c.incrOnce(ctx, "iam:captcha:att:"+challengeID, ttlSeconds)
 }

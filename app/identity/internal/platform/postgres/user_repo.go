@@ -14,7 +14,9 @@ var (
 	_ login.ThirdPartyRepository = (*Pool)(nil)
 )
 
-const userCols = `id, phone, email, nickname, avatar_url, status, token_version, created_at`
+// created_at 在 SQL 侧转 epoch 秒：模型层 CreatedAtUnix 是 int64，
+// pgx 无法把 timestamptz 直接扫进整型。
+const userCols = `id, phone, email, nickname, avatar_url, status, token_version, EXTRACT(EPOCH FROM created_at)::bigint AS created_at_unix`
 
 func scanUser(row pgxRow) (*login.User, error) {
 	var u login.User

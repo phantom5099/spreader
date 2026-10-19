@@ -35,6 +35,8 @@ type StrategyDeps struct {
 	Pepper       Pepper
 	PwdCfg       PasswordGuardConfig
 	PwdGuard     PasswordFailGuard
+	// Providers 第三方身份提供方注册表（cmd/ 按 config 启用后注入）；
+	Providers ThirdPartyRegistry
 }
 
 // NewStrategies 构建全部策略，按 Type 索引。
@@ -43,7 +45,7 @@ func NewStrategies(d *StrategyDeps) map[string]LoginStrategy {
 		&PhoneOtpStrategy{d: d},
 		&EmailOtpStrategy{d: d},
 		&PasswordStrategy{d: d},
-		&ThirdPartyStrategy{d: d},
+		&ThirdPartyStrategy{d: d, providers: d.Providers},
 	}
 	m := make(map[string]LoginStrategy, len(list))
 	for _, s := range list {
@@ -214,8 +216,8 @@ func (s *ThirdPartyStrategy) VerifyCredential(ctx context.Context, in *LoginInpu
 			}
 		}
 		return u, false, nil
-	} else if !IsNotFound(err) {
-		return nil, false, err
+	} else if !IsNotFound(ferr) {
+		return nil, false, ferr
 	}
 	// ② 未命中、带 subject_id → 主体级归并：同一人多端收敛到同一本地账号。
 	if ident.SubjectID != "" {
