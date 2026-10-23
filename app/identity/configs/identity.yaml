@@ -11,9 +11,6 @@ redis:
   password: ""
   db: 0                       # cluster 模式仅支持 0
 
-kafka:
-  brokers: [127.0.0.1:19092]  # 本地 compose 端口
-
 login:
   disabled_types: []                  # 停用的登录方式（IAM.UNSUPPORTED_LOGIN_TYPE 的"被配置停用"分支）
 

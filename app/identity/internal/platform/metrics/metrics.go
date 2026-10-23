@@ -59,7 +59,7 @@ func Middleware() middleware.Middleware {
 	}
 }
 
-// BusinessEvent 业务事件计数（在 platform/kafka 的事件出口处调用，与 broker 可用性无关）。
+// BusinessEvent 业务事件计数（在 platform/eventlog 的事件出口处调用，与外部依赖可用性无关）。
 func BusinessEvent(event, reason string) {
 	businessTotal.WithLabelValues(event, reason).Inc()
 }

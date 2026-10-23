@@ -1,6 +1,6 @@
 # identity 服务运行配置（k8s 变体）。
 # 与 identity.loadtest.yaml 的差异：监听 0.0.0.0（pod 内必须）、
-# 依赖组件走 host.docker.internal（compose 里的 PG/Redis/Kafka）。
+# 依赖组件走 host.docker.internal（compose 里的 PG/Redis）。
 # 敏感项（DSN/JWT/pepper）不在本文件，经 Secret 注入环境变量（见 20-secret.yaml）。
 
 database:
@@ -11,9 +11,6 @@ redis:
   addrs: [host.docker.internal:16379]
   password: ""
   db: 0
-
-kafka:
-  brokers: [host.docker.internal:19092]   # EXTERNAL listener 已宣告 host.docker.internal
 
 login:
   disabled_types: []

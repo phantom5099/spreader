@@ -24,7 +24,7 @@ import (
 	"github.com/phantom5099/spreader/app/identity/internal/otp"
 	"github.com/phantom5099/spreader/app/identity/internal/platform/captcha"
 	"github.com/phantom5099/spreader/app/identity/internal/platform/config"
-	"github.com/phantom5099/spreader/app/identity/internal/platform/kafka"
+	"github.com/phantom5099/spreader/app/identity/internal/platform/eventlog"
 	"github.com/phantom5099/spreader/app/identity/internal/platform/mail"
 	"github.com/phantom5099/spreader/app/identity/internal/platform/metrics"
 	"github.com/phantom5099/spreader/app/identity/internal/platform/postgres"
@@ -42,20 +42,23 @@ func (m providerRegistry) Get(p string) (login.ThirdPartyProvider, bool) {
 	return v, ok
 }
 
-// auditWriterAdapter kafka.AuditRow → postgres.LoginAuditRow 的投影转换。
+// auditWriterAdapter eventlog.AuditRow → postgres.LoginAuditRow 的投影转换。
 type auditWriterAdapter struct{ p *postgres.Pool }
 
-func (a auditWriterAdapter) WriteLoginAudit(ctx context.Context, rows []kafka.AuditRow) error {
+func (a auditWriterAdapter) WriteLoginAudit(ctx context.Context, rows []eventlog.AuditRow) error {
 	out := make([]postgres.LoginAuditRow, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, postgres.LoginAuditRow{
-			UserID:           r.UserID,
-			LoginType:        r.LoginType,
-			IdentifierMasked: r.IdentifierMasked,
-			Result:           r.Result,
-			Reason:           r.Reason,
-			IP:               r.IP,
-			DeviceID:         r.DeviceID,
+			UserID:             r.UserID,
+			LoginType:          r.LoginType,
+			IdentifierMasked:   r.IdentifierMasked,
+			Result:             r.Result,
+			Reason:             r.Reason,
+			IP:                 r.IP,
+			DeviceID:           r.DeviceID,
+			CaptchaChallengeID: r.CaptchaChallengeID,
+			CaptchaKind:        r.CaptchaKind,
+			CaptchaResult:      r.CaptchaResult,
 		})
 	}
 	return a.p.WriteLoginAudit(ctx, out)
@@ -118,9 +121,7 @@ func run() int {
 	metrics.ServeAdmin(firstNonEmptyStr(cfg.Metrics.Addr, "127.0.0.1:9100"))
 	metrics.RegisterPGPool(func() (total, idle, acquired, limit int) { return db.PGPoolStats() })
 
-	publisher := kafka.NewPublisher(cfg.Kafka.Brokers, log)
-	defer func() { _ = publisher.Close() }()
-	go kafka.NewAuditConsumer(cfg.Kafka.Brokers, "identity-audit", auditWriterAdapter{db}, log).Run(ctx)
+	publisher := eventlog.NewPublisher(log, auditWriterAdapter{db})
 	go func() { // 过期数据清理：每 6 小时一轮
 		t := time.NewTicker(6 * time.Hour)
 		defer t.Stop()

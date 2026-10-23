@@ -92,7 +92,7 @@ func (p *Pool) TokenVersionOf(ctx context.Context, userID string) (int64, error)
 	return ver, err
 }
 
-// WriteLoginAudit 供 Kafka 审计消费者批量写入（cmd/ 以函数注入，不引接口）。
+// WriteLoginAudit 供事件出口批量写入审计（cmd/ 以适配器注入，不引接口）。
 // identifier_masked 已由发布方脱敏；完整手机号/邮箱不落审计表。
 func (p *Pool) WriteLoginAudit(ctx context.Context, rows []LoginAuditRow) error {
 	batch := &pgxBatch{}
@@ -114,7 +114,7 @@ func (p *Pool) WriteLoginAudit(ctx context.Context, rows []LoginAuditRow) error 
 	return nil
 }
 
-// LoginAuditRow 审计行（与 Kafka 事件载荷一一对应）。
+// LoginAuditRow 审计行（与事件载荷字段一一对应）。
 type LoginAuditRow struct {
 	UserID             string `json:"user_id,omitempty"`
 	LoginType          string `json:"login_type"`

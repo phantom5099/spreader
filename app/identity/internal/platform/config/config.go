@@ -31,9 +31,6 @@ type Config struct {
 		Password   string   `yaml:"password"`
 		DB         int      `yaml:"db"` // cluster 模式仅支持 0
 	}
-	Kafka struct {
-		Brokers []string `yaml:"brokers"`
-	}
 	JWT struct {
 		SecretEnv string `yaml:"secret_env"` // HS256 签名密钥
 		ATTTLSec  int64  `yaml:"at_ttl_seconds"`

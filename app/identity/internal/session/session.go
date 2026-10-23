@@ -62,7 +62,7 @@ type VersionSource interface {
 	TokenVersionOf(ctx context.Context, userID string) (int64, error)
 }
 
-// Events 会话撤销事件（kafka 实现；session.revoked → realtime 关长连接）。
+// Events 会话撤销事件（platform/eventlog 实现；未来 realtime 在线时据此关长连接）。
 type Events interface {
 	SessionRevoked(ctx context.Context, userID, sessionID, familyID, reason string)
 }

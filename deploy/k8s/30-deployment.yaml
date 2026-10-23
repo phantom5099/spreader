@@ -48,7 +48,7 @@ spec:
           startupProbe:
             httpGet: { path: /v1/identity/ping, port: http }
             periodSeconds: 2
-            failureThreshold: 30          # 启动期（连 PG/Redis/Kafka + 迁移）最多等 60s
+            failureThreshold: 30          # 启动期（连 PG/Redis + 迁移）最多等 60s
           resources:
             requests:
               cpu: 100m

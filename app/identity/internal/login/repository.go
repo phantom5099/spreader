@@ -47,7 +47,7 @@ type LoginEvent struct {
 	Captcha          captchaAudit // 人机验证审计
 }
 
-// EventPublisher 事件发布（Kafka 实现在 platform/kafka）。发布永不阻塞登录：实现内吞错并记日志。
+// EventPublisher 事件发布（实现在 platform/eventlog）。发布永不阻塞登录：实现内吞错并记日志。
 type EventPublisher interface {
 	UserCreated(ctx context.Context, userID string)
 	LoginSucceeded(ctx context.Context, e *LoginEvent)
