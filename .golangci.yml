@@ -61,13 +61,6 @@ linters:
           - gocritic
           - prealloc
           - revive
-      # proto 生成产物不参与检查（生成物与 proto 同目录，落在 api/<域>/v1/ 下）
-      - path: \.pb\.go$
-        linters:
-          - revive
-          - gocritic
-          - unused
-          - errcheck
 
 formatters:
   enable:

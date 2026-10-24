@@ -8,11 +8,11 @@ compose 的 PG/Redis/Kafka 已起。发压时打开 Grafana（localhost:13000）
 ```bash
 # ① 起 identity（压测 profile，独立库）
 CREATE DATABASE spreader_loadtest;   -- psql 执行一次
-export IDENTITY_PG_DSN=postgres://spreader:spreader@127.0.0.1:15432/spreader_loadtest?sslmode=disable
-export IDENTITY_JWT_SECRET=dev-only-jwt-secret-32bytes-min
-export IDENTITY_OTP_PEPPER=dev-only-otp-pepper
-export IDENTITY_ARGON_PEPPER=dev-only-argon-pepper
-go run ./app/identity/cmd/identity -conf app/identity/configs/identity.loadtest.yaml
+export SERVER_PG_DSN=postgres://spreader:spreader@127.0.0.1:15432/spreader_loadtest?sslmode=disable
+export SERVER_JWT_SECRET=dev-only-jwt-secret-32bytes-min
+export SERVER_OTP_PEPPER=dev-only-otp-pepper
+export SERVER_ARGON_PEPPER=dev-only-argon-pepper
+go run ./app/cmd/server -conf app/configs/server.loadtest.yaml
 
 # ② 冒烟/负载（并发量 = VUS，时长 = DURATION，都是你自己的旋钮）
 K6_WEB_DASHBOARD=true k6 run -e VUS=10 -e DURATION=30s perf/me.js

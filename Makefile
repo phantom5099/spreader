@@ -14,9 +14,6 @@ GOLANGCI_LINT_VERSION := v2.14.0
 COMPOSE_FILE := deploy/compose/docker-compose.yml
 COMPOSE_CMD  := docker compose -f $(COMPOSE_FILE)
 
-# 服务列表（单模块仓库：每个服务是 app/ 下的一个目录，不是独立模块）
-SERVICES := gateway identity content media feed interaction relation message realtime search notification moderation
-
 .PHONY: help
 help: ## 显示可用目标
 	@echo "spreader 开发命令："
@@ -24,46 +21,24 @@ help: ## 显示可用目标
 		| sort \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# ==================== proto ====================
-
-.PHONY: gen
-gen: ## 由 proto 生成 Go 代码（HTTP + gRPC 双栈）
-	@which buf >/dev/null 2>&1 || { echo "未安装 buf，见 https://buf.build/docs/installation"; exit 1; }
-	buf dep update
-	buf lint
-	buf generate
-
-.PHONY: gen-lint
-gen-lint: ## 仅校验 proto（lint + breaking）
-	buf lint
-	buf breaking --against '.git#branch=main'
-
-.PHONY: proto-tools
-proto-tools: ## 安装 proto 工具链（buf + 三个 protoc 插件，版本与 buf.gen.yaml 一致）
-	go install github.com/bufbuild/buf/cmd/buf@latest
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
-	go install github.com/go-kratos/kratos/cmd/protoc-gen-go-http/v3@v3.0.0-20260526000039-30da04b769dc
-
 # ==================== 构建与测试 ====================
 
 .PHONY: build
 build: ## 编译全部模块
 	go build ./...
 
-.PHONY: build-% 
-build-%: ## 编译指定服务，如 make build-identity
-	@test -d app/$* || { echo "服务 app/$* 不存在"; exit 1; }
-	go build ./app/$*/...
+.PHONY: build-server
+build-server: ## 编译进程入口
+	go build ./app/cmd/server
 
-.PHONY: run-identity
-run-identity: ## 本地运行 identity 服务（先 make compose-up + make env；凭据取自 .env）
+.PHONY: run
+run: ## 本地运行服务（先 make compose-up + make env；凭据取自 .env）
 	@test -f .env && { set -a; . ./.env; set +a; } || echo "提示：无 .env，使用内置开发默认值"
-	export IDENTITY_PG_DSN="$${IDENTITY_PG_DSN:-$${DATABASE_DSN:-postgres://spreader:spreader@127.0.0.1:15432/spreader?sslmode=disable}}"
-	export IDENTITY_JWT_SECRET="$${IDENTITY_JWT_SECRET:-dev-only-jwt-secret-32bytes-min}"
-	export IDENTITY_OTP_PEPPER="$${IDENTITY_OTP_PEPPER:-dev-only-otp-pepper}"
-	export IDENTITY_ARGON_PEPPER="$${IDENTITY_ARGON_PEPPER:-dev-only-argon-pepper}"
-	go run ./app/identity/cmd/identity -conf app/identity/configs/identity.yaml
+	export SERVER_PG_DSN="$${SERVER_PG_DSN:-$${DATABASE_DSN:-postgres://spreader:spreader@127.0.0.1:15432/spreader?sslmode=disable}}"
+	export SERVER_JWT_SECRET="$${SERVER_JWT_SECRET:-dev-only-jwt-secret-32bytes-min}"
+	export SERVER_OTP_PEPPER="$${SERVER_OTP_PEPPER:-dev-only-otp-pepper}"
+	export SERVER_ARGON_PEPPER="$${SERVER_ARGON_PEPPER:-dev-only-argon-pepper}"
+	go run ./app/cmd/server -conf app/configs/server.yaml
 
 .PHONY: test
 test: ## 运行全部测试
@@ -138,7 +113,7 @@ env: ## 由示例生成 .env（不存在时）
 	@test -f .env || (cp .env.example .env && echo "已生成 .env，请按需修改")
 
 .PHONY: init
-init: env compose-up gen tidy ## 一键初始化：环境变量 + 依赖组件 + proto 生成 + 依赖整理
+init: env compose-up tidy ## 一键初始化：环境变量 + 依赖组件 + 依赖整理
 	@echo "初始化完成。执行 make build 验证编译。"
 
 # ==================== 清理 ====================

@@ -13,7 +13,6 @@ import (
 type Config struct {
 	Server struct {
 		HTTPAddr string `yaml:"http_addr"` // HTTP 监听地址
-		GRPCAddr string `yaml:"grpc_addr"` // gRPC 监听地址
 	}
 	Metrics struct {
 		Addr string `yaml:"metrics_addr"` // 管理端点（/metrics + pprof）；Prometheus 容器采集时需 0.0.0.0

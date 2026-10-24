@@ -1,19 +1,15 @@
-// Package metrics 应用级可观测：RED 中间件、管理端点（/metrics + pprof）、
+// Package metrics 应用级可观测：路由级 RED 指标、管理端点（/metrics + pprof）、
 // PG 连接池指标与业务事件计数器。
 // label 红线：只允许 operation/status 等低基数维度——user_id、完整 URL 严禁入 label，否则时间序列爆炸会杀死 Prometheus。
 package metrics
 
 import (
-	"context"
 	"net/http"
 	"strconv"
 	"time"
 
 	_ "net/http/pprof" // 注册 /debug/pprof/* 到 DefaultServeMux（随管理端点暴露，仅回环/受控地址）
 
-	kerrors "github.com/go-kratos/kratos/v3/errors"
-	"github.com/go-kratos/kratos/v3/middleware"
-	"github.com/go-kratos/kratos/v3/transport"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -21,42 +17,65 @@ import (
 
 var (
 	httpRequests = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "identity_http_requests_total",
+		Name: "server_http_requests_total",
 		Help: "HTTP 请求总数（按 operation 与状态码；429 属限流正常态，5xx 才是故障）。",
 	}, []string{"operation", "status"})
 
 	httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "identity_http_request_duration_seconds",
+		Name:    "server_http_request_duration_seconds",
 		Help:    "HTTP 请求耗时分布（分桶后可算 P50/P95/P99；平均值会说谎，分位数不会）。",
 		Buckets: []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 	}, []string{"operation"})
 
 	businessTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "identity_business_events_total",
+		Name: "server_business_events_total",
 		Help: "业务事件计数（登录成败原因/封禁/RT 重放/撤销等；异动 = 被滥用或被攻击的信号）。",
 	}, []string{"event", "reason"})
 )
 
-// Middleware RED 指标中间件：请求结束时按 operation 写计数与耗时。
-// operation 来自 proto 注解生成的方法名（如 /v1/auth/IdentityService/Login），天然低基数。
-func Middleware() middleware.Middleware {
-	return func(handler middleware.Handler) middleware.Handler {
-		return func(ctx context.Context, req any) (any, error) {
-			op := "unknown"
-			if tr, ok := transport.FromServerContext(ctx); ok {
-				op = tr.Operation()
-			}
+// Filter 单条路由的 RED 指标。
+// operation 由注册方显式传入（如 "POST /v1/auth/login"）：不从请求 URL 取值，
+// 否则任意路径扫描都会生成新 label，直接把时间序列打爆。
+func Filter(operation string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			reply, err := handler(ctx, req)
-			code := 200
-			if err != nil {
-				code = kerrors.Code(err)
-			}
-			httpRequests.WithLabelValues(op, strconv.Itoa(code)).Inc()
-			httpDuration.WithLabelValues(op).Observe(time.Since(start).Seconds())
-			return reply, err
-		}
+			sw := &statusWriter{ResponseWriter: w}
+			next.ServeHTTP(sw, r)
+			httpRequests.WithLabelValues(operation, strconv.Itoa(sw.status())).Inc()
+			httpDuration.WithLabelValues(operation).Observe(time.Since(start).Seconds())
+		})
 	}
+}
+
+// statusWriter 记录实际写出的状态码；handler 不显式 WriteHeader 时为 200。
+type statusWriter struct {
+	http.ResponseWriter
+	code int
+}
+
+func (w *statusWriter) WriteHeader(code int) {
+	if w.code == 0 {
+		w.code = code
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *statusWriter) Write(b []byte) (int, error) {
+	if w.code == 0 {
+		w.code = http.StatusOK
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+// Unwrap 让 http.ResponseController 能拿到底层 writer（流式/长连接需要）。
+func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *statusWriter) status() int {
+	if w.code == 0 {
+		return http.StatusOK
+	}
+	return w.code
 }
 
 // BusinessEvent 业务事件计数（在 platform/eventlog 的事件出口处调用，与外部依赖可用性无关）。
@@ -79,7 +98,7 @@ func ServeAdmin(addr string) *http.Server {
 // RegisterPGPool 注册 PG 连接池指标（快照函数由持有方提供，15s 采样一次）。
 func RegisterPGPool(snap func() (total, idle, acquired, limit int)) {
 	g := promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "identity_pg_pool_conns",
+		Name: "server_pg_pool_conns",
 		Help: "PG 连接池状态（饱和 = 慢查询/连接泄漏的前兆）。",
 	}, []string{"state"})
 	go func() {

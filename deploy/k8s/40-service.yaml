@@ -1,18 +1,18 @@
 # 应用 ClusterIP(8000) + NodePort(30800/30100)。
 # ⚠️ Docker Desktop 的 k8s 后端是 kind，不自动映射 NodePort 到宿主机——
-# 本机访问用 kubectl port-forward svc/identity 18000:8000（identity.config.yaml 的
+# 本机访问用 kubectl port-forward svc/server 18000:8000（server.config.yaml 的
 # mock 回跳地址与之配套）。NodePort 保留：上真实 k8s 集群后直接可用。
 apiVersion: v1
 kind: Service
 metadata:
-  name: identity
+  name: server
   namespace: spreader
   labels:
-    app: identity
+    app: server
 spec:
   type: NodePort
   selector:
-    app: identity
+    app: server
   ports:
     - name: http
       port: 8000

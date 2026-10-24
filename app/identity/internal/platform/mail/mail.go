@@ -6,11 +6,17 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/smtp"
 	"strings"
+	"time"
 
 	"github.com/phantom5099/spreader/app/identity/internal/otp"
 )
+
+// smtpTimeout 覆盖拨号与会话：smtp 命令本身不接收 ctx，只能靠连接 deadline 兜底。
+// 与短信通道一致取 5s，避免登录请求被一次卡住的握手拖长。
+const smtpTimeout = 5 * time.Second
 
 // Console 开发通道：验证码打印到日志（dev.* 路由默认）。
 type Console struct{ Log *slog.Logger }
@@ -39,41 +45,11 @@ type SMTP struct {
 func NewSMTP(cfg SMTPConfig) *SMTP { return &SMTP{cfg: cfg} }
 
 // Send 实现 otp.Sender。
-func (s *SMTP) Send(_ context.Context, to, code string) error {
-	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
-	conn, err := tls.Dial("tcp", addr, &tls.Config{ServerName: s.cfg.Host})
-	if err != nil {
-		return fmt.Errorf("smtp dial: %w", err)
+func (s *SMTP) Send(ctx context.Context, to, code string) error {
+	if err := sendSMTP(ctx, s.cfg, to, "您的验证码", codeBody(code)); err != nil {
+		return fmt.Errorf("smtp send: %w", err)
 	}
-	defer func() { _ = conn.Close() }()
-	cl, err := smtp.NewClient(conn, s.cfg.Host)
-	if err != nil {
-		return fmt.Errorf("smtp client: %w", err)
-	}
-	defer func() { _ = cl.Close() }()
-	if ok, _ := cl.Extension("AUTH"); ok { // 探测失败视作不支持 AUTH（后续命令自然报错）
-		if aerr := cl.Auth(smtp.PlainAuth("", s.cfg.Username, s.cfg.Password, s.cfg.Host)); aerr != nil {
-			return fmt.Errorf("smtp auth: %w", err)
-		}
-	}
-	if merr := cl.Mail(s.cfg.From); merr != nil {
-		return err
-	}
-	if rerr := cl.Rcpt(to); rerr != nil {
-		return err
-	}
-	w, err := cl.Data()
-	if err != nil {
-		return err
-	}
-	msg := buildMail(s.cfg.From, to, "您的验证码", codeBody(code))
-	if _, err = w.Write(msg); err != nil {
-		return err
-	}
-	if werr := w.Close(); werr != nil {
-		return err
-	}
-	return cl.Quit()
+	return nil
 }
 
 // Mail139 139 邮箱桥：目标 = <E.164去掉+号的手机号>@139.com；验证码放邮件标题。
@@ -89,43 +65,60 @@ func NewMail139(cfg SMTPConfig, domain string) *Mail139 {
 }
 
 // Send 实现 otp.Sender。to 为 E.164 手机号。
-func (m *Mail139) Send(_ context.Context, to, code string) error {
-	digits := strings.TrimPrefix(to, "+")
-	target := digits + "@" + m.domain
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", m.cfg.Host, m.cfg.Port), &tls.Config{ServerName: m.cfg.Host})
+func (m *Mail139) Send(ctx context.Context, to, code string) error {
+	target := strings.TrimPrefix(to, "+") + "@" + m.domain
+	// 验证码放标题：139 免费短信提醒只展示约 140 字摘要，标题直达。
+	if err := sendSMTP(ctx, m.cfg, target, fmt.Sprintf("验证码 %s", code), codeBody(code)); err != nil {
+		return fmt.Errorf("smtp send: %w", err)
+	}
+	return nil
+}
+
+// sendSMTP 拨号、认证并投递一封纯文本邮件；任何一步失败都必须向上返回，不能吞成成功。
+func sendSMTP(ctx context.Context, cfg SMTPConfig, to, subject, body string) error {
+	d := &tls.Dialer{
+		Config:    &tls.Config{ServerName: cfg.Host},
+		NetDialer: &net.Dialer{Timeout: smtpTimeout},
+	}
+	conn, err := d.DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))
 	if err != nil {
-		return fmt.Errorf("smtp dial: %w", err)
+		return fmt.Errorf("dial: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
-	cl, err := smtp.NewClient(conn, m.cfg.Host)
+	if derr := conn.SetDeadline(time.Now().Add(smtpTimeout)); derr != nil {
+		return fmt.Errorf("set deadline: %w", derr)
+	}
+
+	cl, err := smtp.NewClient(conn, cfg.Host)
 	if err != nil {
-		return fmt.Errorf("smtp client: %w", err)
+		return fmt.Errorf("client: %w", err)
 	}
 	defer func() { _ = cl.Close() }()
 	if ok, _ := cl.Extension("AUTH"); ok { // 探测失败视作不支持 AUTH（后续命令自然报错）
-		if aerr := cl.Auth(smtp.PlainAuth("", m.cfg.Username, m.cfg.Password, m.cfg.Host)); aerr != nil {
-			return fmt.Errorf("smtp auth: %w", err)
+		if aerr := cl.Auth(smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)); aerr != nil {
+			return fmt.Errorf("auth: %w", aerr)
 		}
 	}
-	if merr := cl.Mail(m.cfg.From); merr != nil {
-		return err
+	if merr := cl.Mail(cfg.From); merr != nil {
+		return fmt.Errorf("mail from: %w", merr)
 	}
-	if rerr := cl.Rcpt(target); rerr != nil {
-		return err
+	if rerr := cl.Rcpt(to); rerr != nil {
+		return fmt.Errorf("rcpt to: %w", rerr)
 	}
 	w, err := cl.Data()
 	if err != nil {
-		return err
+		return fmt.Errorf("data: %w", err)
 	}
-	// 验证码放标题：139 免费短信提醒只展示约 140 字摘要，标题直达。
-	msg := buildMail(m.cfg.From, target, fmt.Sprintf("验证码 %s", code), codeBody(code))
-	if _, err = w.Write(msg); err != nil {
-		return err
+	if _, err = w.Write(buildMail(cfg.From, to, subject, body)); err != nil {
+		return fmt.Errorf("write: %w", err)
 	}
 	if werr := w.Close(); werr != nil {
-		return err
+		return fmt.Errorf("close body: %w", werr)
 	}
-	return cl.Quit()
+	if qerr := cl.Quit(); qerr != nil {
+		return fmt.Errorf("quit: %w", qerr)
+	}
+	return nil
 }
 
 func buildMail(from, to, subject, body string) []byte {

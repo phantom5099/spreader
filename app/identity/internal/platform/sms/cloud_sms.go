@@ -17,6 +17,9 @@ import (
 	"github.com/phantom5099/spreader/app/identity/internal/otp"
 )
 
+// httpClient 短信调用超时上限：ctx 无 deadline 时仍能在限定时间内失败。
+var httpClient = &http.Client{Timeout: 5 * time.Second}
+
 // CloudSMS 腾讯云短信。凭据全部走 env（仓库零秘密）。
 type CloudSMS struct {
 	secretID   string
@@ -66,7 +69,7 @@ func (s *CloudSMS) Send(ctx context.Context, to, code string) error {
 	req.Header.Set("X-TC-Version", "2021-01-11")
 	req.Header.Set("X-TC-Timestamp", fmt.Sprintf("%d", time.Now().Unix()))
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}

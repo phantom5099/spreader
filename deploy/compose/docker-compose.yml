@@ -153,7 +153,7 @@ services:
     networks:
       - spreader-dev
 
-  # ===== 可观测：Prometheus（抓 identity 的 9100 管理端点）=====
+  # ===== 可观测：Prometheus（抓 server 进程的 9100 管理端点）=====
   prometheus:
     image: prom/prometheus:v2.53.0
     container_name: spreader-prometheus
@@ -168,7 +168,7 @@ services:
     networks:
       - spreader-dev
 
-  # ===== 可观测：Grafana（localhost:13000，预置 Prometheus 数据源与 identity 仪表盘）=====
+  # ===== 可观测：Grafana（localhost:13000，预置 Prometheus 数据源与 server 仪表盘）=====
   grafana:
     image: grafana/grafana:11.3.0
     container_name: spreader-grafana

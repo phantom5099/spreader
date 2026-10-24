@@ -5,19 +5,16 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
 	kerrors "github.com/go-kratos/kratos/v3/errors"
-	kratosMiddleware "github.com/go-kratos/kratos/v3/middleware"
-	"github.com/go-kratos/kratos/v3/transport"
-
-	v1 "github.com/phantom5099/spreader/api/identity/v1"
+	khttp "github.com/go-kratos/kratos/v3/transport/http"
 )
 
-// Handler proto ↔ domain 的薄适配：实现 v1.IdentityServiceHTTPServer / v1.IdentityServiceServer。
+// Handler 传输适配层：HTTP 请求/响应 ↔ 领域类型，保持薄。
 type Handler struct {
-	v1.UnimplementedIdentityServiceServer
 	svc      *Service
 	users    UserRepository
 	sessions SessionIssuer
@@ -57,195 +54,174 @@ func MapError(err error) error {
 	return ke
 }
 
-func clientIP(ctx context.Context) string {
-	if tr, ok := transport.FromServerContext(ctx); ok {
-		if h := tr.RequestHeader(); h != nil {
-			if v := h.Get("X-Real-IP"); v != "" {
-				return v
-			}
-			if v := h.Get("X-Forwarded-For"); v != "" {
-				return strings.TrimSpace(strings.Split(v, ",")[0])
-			}
-		}
+// clientIP 取边缘代理写入的真实客户端 IP：仅信任 X-Real-IP / X-Forwarded-For 首段。
+func clientIP(r *http.Request) string {
+	if v := r.Header.Get("X-Real-IP"); v != "" {
+		return v
+	}
+	if v := r.Header.Get("X-Forwarded-For"); v != "" {
+		return strings.TrimSpace(strings.Split(v, ",")[0])
 	}
 	return ""
 }
 
-// SendOtp 实现 v1.IdentityServiceHTTPServer。
-func (h *Handler) SendOtp(ctx context.Context, req *v1.SendOtpRequest) (*v1.SendOtpResponse, error) {
-	cd, err := h.svc.SendOtp(ctx, req.GetChannel(), req.GetDestination(), req.GetNation(),
-		req.GetScene(), decodeCaptchaToken(req.GetCaptchaToken()), clientIP(ctx), "")
+// authenticate 从 Authorization 提取并校验登录态。
+func (h *Handler) authenticate(ctx context.Context, r *http.Request) (*AuthInfo, error) {
+	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	info, err := h.sessions.Authenticate(ctx, bearer)
 	if err != nil {
 		return nil, MapError(err)
 	}
-	return &v1.SendOtpResponse{CooldownSeconds: cd}, nil
+	if info == nil {
+		return nil, MapError(ETokenInvalid("unauthenticated"))
+	}
+	return info, nil
 }
 
-// Login 实现 v1.IdentityServiceHTTPServer。
-func (h *Handler) Login(ctx context.Context, req *v1.LoginRequest) (*v1.LoginResponse, error) {
-	in := &LoginInput{
-		Type:     loginTypeName(req.GetType()),
-		DeviceID: req.GetDeviceId(),
-		Captcha:  decodeCaptchaToken(req.GetCaptchaToken()),
-		IP:       clientIP(ctx),
+// SendOtp 发送验证码。发送不是登录动作：限流维度、重发语义、幂等要求均与登录不同。
+func (h *Handler) SendOtp(c khttp.Context) error {
+	var req SendOtpRequestDTO
+	if err := c.Bind(&req); err != nil {
+		return MapError(EBadRequest("invalid request body"))
 	}
-	switch c := req.GetCredential().(type) {
-	case *v1.LoginRequest_PhoneOtp:
-		in.Nation, in.Phone, in.Code = c.PhoneOtp.GetNation(), c.PhoneOtp.GetPhone(), c.PhoneOtp.GetCode()
-	case *v1.LoginRequest_EmailOtp:
-		in.Email, in.Code = c.EmailOtp.GetEmail(), c.EmailOtp.GetCode()
-	case *v1.LoginRequest_Password:
-		in.Identifier, in.Password = c.Password.GetIdentifier(), c.Password.GetPassword()
-	case *v1.LoginRequest_ThirdParty:
+	cd, err := h.svc.SendOtp(c, req.Channel, req.Destination, req.Nation,
+		req.Scene, decodeCaptchaToken(req.CaptchaToken), clientIP(c.Request()), "")
+	if err != nil {
+		return MapError(err)
+	}
+	return c.Result(http.StatusOK, &SendOtpResponseDTO{CooldownSeconds: cd})
+}
+
+// Login 统一登录入口：按 type 分流到策略实现。
+func (h *Handler) Login(c khttp.Context) error {
+	var req LoginRequestDTO
+	if err := c.Bind(&req); err != nil {
+		return MapError(EBadRequest("invalid request body"))
+	}
+	in := &LoginInput{
+		Type:     loginTypeName(req.Type),
+		DeviceID: req.DeviceID,
+		Captcha:  decodeCaptchaToken(req.CaptchaToken),
+		IP:       clientIP(c.Request()),
+	}
+	switch {
+	case req.PhoneOtp != nil:
+		in.Nation, in.Phone, in.Code = req.PhoneOtp.Nation, req.PhoneOtp.Phone, req.PhoneOtp.Code
+	case req.EmailOtp != nil:
+		in.Email, in.Code = req.EmailOtp.Email, req.EmailOtp.Code
+	case req.Password != nil:
+		in.Identifier, in.Password = req.Password.Identifier, req.Password.Password
+	case req.ThirdParty != nil:
 		in.ThirdParty = ThirdPartyCredential{
-			Provider: c.ThirdParty.GetProvider(),
-			Code:     c.ThirdParty.GetCode(),
-			State:    c.ThirdParty.GetState(),
-			Platform: c.ThirdParty.GetPlatform(),
+			Provider: req.ThirdParty.Provider,
+			Code:     req.ThirdParty.Code,
+			State:    req.ThirdParty.State,
+			Platform: req.ThirdParty.Platform,
 		}
 	default:
-		return nil, MapError(EUnsupportedLoginType("missing credential"))
+		return MapError(EUnsupportedLoginType("missing credential"))
 	}
-	res, err := h.svc.Login(ctx, in)
+	res, err := h.svc.Login(c, in)
 	if err != nil {
-		return nil, MapError(err)
+		return MapError(err)
 	}
-	return &v1.LoginResponse{
-		User:               toProtoUser(res.User),
+	return c.Result(http.StatusOK, &LoginResponseDTO{
+		User:               toUserDTO(res.User),
 		IsNewUser:          res.IsNewUser,
 		OnboardingRequired: res.OnboardingRequired,
 		AccessToken:        res.AccessToken,
 		RefreshToken:       res.RefreshToken,
 		ExpiresIn:          res.ExpiresIn,
 		TokenType:          res.TokenType,
-	}, nil
+	})
 }
 
-// IssueCaptcha 实现 v1.IdentityServiceHTTPServer。
-func (h *Handler) IssueCaptcha(ctx context.Context, req *v1.IssueCaptchaRequest) (*v1.IssueCaptchaResponse, error) {
-	ch, err := h.verifier.Issue(ctx, &ChallengeRequest{
-		Scene:    ChallengeScene(req.GetScene()),
-		ClientIP: clientIP(ctx),
-		DeviceID: req.GetDeviceId(),
+// IssueCaptcha 预取人机验证挑战：otp:send 触发风控时也需前置校验。
+func (h *Handler) IssueCaptcha(c khttp.Context) error {
+	var req IssueCaptchaRequestDTO
+	if err := c.Bind(&req); err != nil {
+		return MapError(EBadRequest("invalid request body"))
+	}
+	ch, err := h.verifier.Issue(c, &ChallengeRequest{
+		Scene:    ChallengeScene(req.Scene),
+		ClientIP: clientIP(c.Request()),
+		DeviceID: req.DeviceID,
 	})
 	if err != nil {
-		return nil, MapError(err)
+		return MapError(err)
 	}
-	return &v1.IssueCaptchaResponse{Challenge: &v1.CaptchaChallenge{
-		ChallengeId: ch.ChallengeID,
+	return c.Result(http.StatusOK, &IssueCaptchaResponseDTO{Challenge: &CaptchaChallengeDTO{
+		ChallengeID: ch.ChallengeID,
 		Kind:        string(ch.Kind),
 		Payload:     string(ch.Payload),
 		ExpiresIn:   ch.ExpiresAt - time.Now().Unix(),
-	}}, nil
+	}})
 }
 
-// RefreshToken 实现 v1.IdentityServiceHTTPServer。
-func (h *Handler) RefreshToken(ctx context.Context, req *v1.RefreshTokenRequest) (*v1.RefreshTokenResponse, error) {
-	access, refresh, expiresIn, _, err := h.sessions.Refresh(ctx, req.GetRefreshToken(), "")
-	if err != nil {
-		return nil, MapError(err)
+// RefreshToken 刷新 AT：RT 轮换 + 重放检测（与 RT 会话模型绑定）。
+func (h *Handler) RefreshToken(c khttp.Context) error {
+	var req RefreshTokenRequestDTO
+	if err := c.Bind(&req); err != nil {
+		return MapError(EBadRequest("invalid request body"))
 	}
-	return &v1.RefreshTokenResponse{
+	access, refresh, expiresIn, _, err := h.sessions.Refresh(c, req.RefreshToken, "")
+	if err != nil {
+		return MapError(err)
+	}
+	return c.Result(http.StatusOK, &RefreshTokenResponseDTO{
 		AccessToken:  access,
 		RefreshToken: refresh,
 		ExpiresIn:    expiresIn,
 		TokenType:    "Bearer",
-	}, nil
+	})
 }
 
-// Logout 实现 v1.IdentityServiceHTTPServer：天然幂等。
-func (h *Handler) Logout(ctx context.Context, _ *v1.LogoutRequest) (*v1.LogoutResponse, error) {
-	info := AuthInfoFrom(ctx)
-	if info == nil {
-		return nil, MapError(ETokenInvalid("unauthenticated"))
-	}
-	if err := h.sessions.Revoke(ctx, *info); err != nil {
-		return nil, MapError(err)
-	}
-	return &v1.LogoutResponse{}, nil
-}
-
-// GetMe 实现 v1.IdentityServiceHTTPServer。
-func (h *Handler) GetMe(ctx context.Context, _ *v1.GetMeRequest) (*v1.GetMeResponse, error) {
-	info := AuthInfoFrom(ctx)
-	if info == nil {
-		return nil, MapError(ETokenInvalid("unauthenticated"))
-	}
-	u, err := h.users.GetByID(ctx, info.UserID)
+// Logout 登出当前会话（天然幂等）。
+func (h *Handler) Logout(c khttp.Context) error {
+	info, err := h.authenticate(c, c.Request())
 	if err != nil {
-		return nil, MapError(err)
+		return err
 	}
-	return &v1.GetMeResponse{User: toProtoUser(u), OnboardingRequired: u.OnboardingRequired()}, nil
+	if rerr := h.sessions.Revoke(c, *info); rerr != nil {
+		return MapError(rerr)
+	}
+	return c.Result(http.StatusOK, &EmptyDTO{})
 }
 
-// ThirdPartyAuthorize 实现 v1.IdentityServiceHTTPServer。
-func (h *Handler) ThirdPartyAuthorize(ctx context.Context, req *v1.ThirdPartyAuthorizeRequest) (*v1.ThirdPartyAuthorizeResponse, error) {
-	u, err := h.svc.ThirdPartyAuthorize(ctx, req.GetProvider(), req.GetPlatform())
+// GetMe 当前账号（含 onboarding_required）：登录后引导资料完善，仅提示不拦截。
+func (h *Handler) GetMe(c khttp.Context) error {
+	info, err := h.authenticate(c, c.Request())
 	if err != nil {
-		return nil, MapError(err)
+		return err
 	}
-	return &v1.ThirdPartyAuthorizeResponse{AuthorizationUrl: u}, nil
-}
-
-// ThirdPartyCallback 实现 v1.IdentityServiceHTTPServer。
-func (h *Handler) ThirdPartyCallback(ctx context.Context, req *v1.ThirdPartyCallbackRequest) (*v1.ThirdPartyCallbackResponse, error) {
-	code, err := h.svc.ThirdPartyCallback(ctx, req.GetState(), req.GetCode())
+	u, err := h.users.GetByID(c, info.UserID)
 	if err != nil {
-		return nil, MapError(err)
+		return MapError(err)
 	}
-	return &v1.ThirdPartyCallbackResponse{Code: code}, nil
+	return c.Result(http.StatusOK, &GetMeResponseDTO{User: toUserDTO(u), OnboardingRequired: u.OnboardingRequired()})
 }
 
-func toProtoUser(u *User) *v1.User {
-	return &v1.User{
-		Id: u.ID, Phone: u.Phone, Email: u.Email,
-		Nickname: u.Nickname, AvatarUrl: u.AvatarURL, Status: string(u.Status),
+// ThirdPartyAuthorize 签发一次性 state → 返回第三方授权页地址（web 流程第一步）。
+func (h *Handler) ThirdPartyAuthorize(c khttp.Context) error {
+	u, err := h.svc.ThirdPartyAuthorize(c, c.Query().Get("provider"), c.Query().Get("platform"))
+	if err != nil {
+		return MapError(err)
 	}
+	return c.Result(http.StatusOK, &ThirdPartyAuthorizeResponseDTO{AuthorizationURL: u})
 }
 
-func loginTypeName(t v1.LoginType) string {
-	switch t {
-	case v1.LoginType_LOGIN_TYPE_PHONE_OTP:
-		return "phone_otp"
-	case v1.LoginType_LOGIN_TYPE_EMAIL_OTP:
-		return "email_otp"
-	case v1.LoginType_LOGIN_TYPE_PASSWORD:
-		return "password"
-	case v1.LoginType_LOGIN_TYPE_THIRD_PARTY:
-		return "thirdparty"
-	default:
-		return ""
+// ThirdPartyCallback 授权回跳：校验 state → 返回一次性 code 给前端调统一 Login。
+func (h *Handler) ThirdPartyCallback(c khttp.Context) error {
+	code, err := h.svc.ThirdPartyCallback(c, c.Query().Get("state"), c.Query().Get("code"))
+	if err != nil {
+		return MapError(err)
 	}
+	return c.Result(http.StatusOK, &ThirdPartyCallbackResponseDTO{Code: code})
 }
 
-// AuthMiddleware 登录态中间件：受保护操作注入 AuthInfo；同时为所有操作提取客户端 IP。
-func AuthMiddleware(iss SessionIssuer) kratosMiddleware.Middleware {
-	return func(h kratosMiddleware.Handler) kratosMiddleware.Handler {
-		return func(ctx context.Context, req any) (any, error) {
-			if tr, ok := transport.FromServerContext(ctx); ok {
-				switch tr.Operation() {
-				case v1.OperationIdentityServiceGetMe, v1.OperationIdentityServiceLogout:
-					bearer := strings.TrimPrefix(tr.RequestHeader().Get("Authorization"), "Bearer ")
-					info, err := iss.Authenticate(ctx, bearer)
-					if err != nil {
-						return nil, MapError(err)
-					}
-					ctx = WithAuthInfo(ctx, info)
-				}
-			}
-			return h(ctx, req)
-		}
-	}
-}
+// ── 人机验证的传输形状 ──
 
-var (
-	_ v1.IdentityServiceHTTPServer = (*Handler)(nil)
-	_ v1.IdentityServiceServer     = (*Handler)(nil)
-)
-
-// ── 人机验证的传输形状）──
-
-// captchaChallengeDTO problem+json 错误体扩展成员 challenge 的形状）。
+// captchaChallengeDTO problem+json 错误体扩展成员 challenge 的形状。
 type captchaChallengeDTO struct {
 	ChallengeID string `json:"challenge_id"`
 	Kind        string `json:"kind"` // selfhosted | turnstile | ...

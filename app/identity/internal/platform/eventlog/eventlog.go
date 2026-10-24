@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/phantom5099/spreader/app/identity/internal/login"
-	"github.com/phantom5099/spreader/app/identity/internal/platform/metrics"
 	"github.com/phantom5099/spreader/app/identity/internal/session"
+	"github.com/phantom5099/spreader/app/platform/metrics"
 )
 
 // auditWriteTimeout 审计写入上界：正常 <1ms，超时只做兜底，不让慢库拖住登录。

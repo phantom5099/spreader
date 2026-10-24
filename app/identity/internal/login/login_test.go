@@ -152,7 +152,8 @@ func newLoginHarness() *loginHarness {
 	ev := &fakeEvents{}
 	return &loginHarness{
 		svc: NewService(Deps{
-			Strategies: map[string]LoginStrategy{"fake": st},
+			// 同一替身注册两个键："fake" 给领域用例，"phone_otp" 给端点用例走真实 type 映射。
+			Strategies: map[string]LoginStrategy{"fake": st, "phone_otp": st},
 			Sessions:   sess,
 			Events:     ev,
 			Policy:     fakePolicy{},

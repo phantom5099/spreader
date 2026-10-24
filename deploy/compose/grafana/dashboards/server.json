@@ -1,6 +1,6 @@
 {
-  "uid": "identity-overview",
-  "title": "Identity 服务总览",
+  "uid": "server-overview",
+  "title": "Server 进程总览",
   "timezone": "browser",
   "refresh": "10s",
   "schemaVersion": 39,
@@ -27,7 +27,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (operation) (rate(identity_http_requests_total[1m]))",
+          "expr": "sum by (operation) (rate(server_http_requests_total[1m]))",
           "refId": "A"
         }
       ],
@@ -60,7 +60,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(identity_http_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(server_http_request_duration_seconds_bucket[1m])))",
           "refId": "A"
         }
       ],
@@ -93,7 +93,7 @@
       },
       "targets": [
         {
-          "expr": "100 * sum(rate(identity_http_requests_total{status=~\"5..\"}[1m])) / sum(rate(identity_http_requests_total[1m]))",
+          "expr": "100 * sum(rate(server_http_requests_total{status=~\"5..\"}[1m])) / sum(rate(server_http_requests_total[1m]))",
           "refId": "A"
         }
       ],
@@ -126,7 +126,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (event) (rate(identity_business_events_total[5m]))",
+          "expr": "sum by (event) (rate(server_business_events_total[5m]))",
           "refId": "A"
         }
       ],
@@ -159,7 +159,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (reason) (rate(identity_business_events_total{event=\"login.failed\"}[5m]))",
+          "expr": "sum by (reason) (rate(server_business_events_total{event=\"login.failed\"}[5m]))",
           "refId": "A"
         }
       ],
@@ -225,7 +225,7 @@
       },
       "targets": [
         {
-          "expr": "identity_pg_pool_conns",
+          "expr": "server_pg_pool_conns",
           "refId": "A"
         }
       ],

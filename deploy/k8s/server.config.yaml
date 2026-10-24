@@ -1,10 +1,10 @@
-# identity 服务运行配置（k8s 变体）。
-# 与 identity.loadtest.yaml 的差异：监听 0.0.0.0（pod 内必须）、
+# server 进程运行配置（k8s 变体）。
+# 与 server.loadtest.yaml 的差异：监听 0.0.0.0（pod 内必须）、
 # 依赖组件走 host.docker.internal（compose 里的 PG/Redis）。
 # 敏感项（DSN/JWT/pepper）不在本文件，经 Secret 注入环境变量（见 20-secret.yaml）。
 
 database:
-  dsn_env: IDENTITY_PG_DSN            # Secret 注入；compose PG 经 host.docker.internal 暴露
+  dsn_env: SERVER_PG_DSN            # Secret 注入；compose PG 经 host.docker.internal 暴露
 
 redis:
   mode: standalone
@@ -16,7 +16,7 @@ login:
   disabled_types: []
 
 jwt:
-  secret_env: IDENTITY_JWT_SECRET     # Secret 注入
+  secret_env: SERVER_JWT_SECRET     # Secret 注入
   at_ttl_seconds: 900
   rt_ttl_seconds: 2592000
 
@@ -28,7 +28,7 @@ otp:
   per_ip_per_hour: 0                  # 压测 profile：防刷限额放开（真实 X-Forwarded-For 场景另议）
   per_device_per_hour: 0
   global_per_minute: 0
-  pepper_env: IDENTITY_OTP_PEPPER     # Secret 注入
+  pepper_env: SERVER_OTP_PEPPER     # Secret 注入
   scene_isolation: [login, reset_password, bind_phone, unbind_phone, change_phone]
   channels:
     login.phone:  { primary: console, fallback: console }
@@ -39,7 +39,7 @@ password:
   max_fails: 5
   fail_window_seconds: 900
   lock_seconds: 300
-  pepper_env: IDENTITY_ARGON_PEPPER   # Secret 注入
+  pepper_env: SERVER_ARGON_PEPPER   # Secret 注入
 
 thirdparty:
   allow_insecure_providers: true      # mock 双闸第二道：pod 内 APP_ENV!=production
@@ -79,7 +79,6 @@ sms:
 server:
   # pod 内必须监听 0.0.0.0：127.0.0.1 会让 Service 转发全部失败
   http_addr: 0.0.0.0:8000
-  grpc_addr: 0.0.0.0:9000
 
 metrics:
   addr: 0.0.0.0:9100                  # Prometheus 经 metrics NodePort(30100) 采集

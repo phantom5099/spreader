@@ -1,52 +1,50 @@
-# identity Deployment：探针 / 资源限额 / 配置与密钥注入。
+# server Deployment：一个进程承载全部模块；探针 / 资源限额 / 配置与密钥注入。
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: identity
+  name: server
   namespace: spreader
   labels:
-    app: identity
+    app: server
 spec:
   replicas: 1                        # k6 压 HPA 时改大或靠 50-hpa.yaml 自动扩
   selector:
     matchLabels:
-      app: identity
+      app: server
   template:
     metadata:
       labels:
-        app: identity
+        app: server
     spec:
       containers:
-        - name: identity
-          image: spreader/identity:dev
+        - name: server
+          image: spreader/server:dev
           imagePullPolicy: IfNotPresent   # 本地构建的镜像，不去远端拉
           ports:
             - name: http
               containerPort: 8000
-            - name: grpc
-              containerPort: 9000
             - name: metrics
               containerPort: 9100
           # 配置注入：ConfigMap 挂载 + Secret 环境变量
-          args: ["-conf", "/etc/spreader/identity.yaml"]
+          args: ["-conf", "/etc/spreader/server.yaml"]
           envFrom:
             - secretRef:
-                name: identity-secret
+                name: server-secret
           volumeMounts:
             - name: config
               mountPath: /etc/spreader
               readOnly: true
           # 就绪探针不过 → 不进 Service 负载；存活探针失败 → 重启容器
           readinessProbe:
-            httpGet: { path: /v1/identity/ping, port: http }
+            httpGet: { path: /healthz, port: http }
             periodSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            httpGet: { path: /v1/identity/ping, port: http }
+            httpGet: { path: /healthz, port: http }
             periodSeconds: 10
             failureThreshold: 6
           startupProbe:
-            httpGet: { path: /v1/identity/ping, port: http }
+            httpGet: { path: /healthz, port: http }
             periodSeconds: 2
             failureThreshold: 30          # 启动期（连 PG/Redis + 迁移）最多等 60s
           resources:
@@ -59,4 +57,4 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: identity-config         # kustomize 会自动改写为带哈希的实际名字
+            name: server-config         # kustomize 会自动改写为带哈希的实际名字
