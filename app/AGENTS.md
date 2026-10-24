@@ -1,35 +1,38 @@
-# AGENTS.md — app/ (Go microservices) working agreement
+# AGENTS.md — app/ (Go backend) working agreement
 
-> This directory holds the implementations of the microservices. When working on files inside it,
+> This directory holds the backend modules. They all run in **one process** (`app/cmd/server`).
+> When working on files inside it,
 > **this file's rules take precedence over the root `AGENTS.md`**.
-> External contracts (proto) live in the root `api/`; libraries shared across services live in the root `pkg/`.
+> The HTTP surface is the contract: routes are registered in `app/<module>/<module>.go`.
 
-## Per-service structure
+## Per-module structure
 
 ```
-app/<service>/
-├── cmd/<service>/       # process entry point: wiring and lifecycle only
-├── configs/             # runtime config for this service (no secrets)
+app/<module>/
+├── cmd/<module>/        # process entry point: wiring and lifecycle only
+├── configs/             # runtime config for this process (no secrets)
 └── internal/
     ├── <domain>/        # one package per business resource
     └── platform/        # cross-domain facilities: config loading, DB, cache, MQ, and repository implementations
 ```
 
-## Services
+## Modules
+
+Only `identity` exists today. The rest are **planned domains, not directories**: create
+`app/<module>/` when the first line of its code is written, never as an empty placeholder.
 
 | Directory | Responsibility |
 | --- | --- |
-| `app/gateway` | Business gateway / BFF; the single REST entry point for clients |
 | `app/identity` | Identity and accounts: login (login is registration), verification codes, session tokens, binding/merging, deactivation |
-| `app/content` | Content: creating, editing, publishing, unpublishing and deleting posts, plus their publish state |
-| `app/media` | Media: upload, chunking, transcoding scheduling, metadata |
-| `app/feed` | Feed / recommendations: pagination, de-duplication, refresh and continuation |
-| `app/interaction` | Interactions: likes, comments, reposts, bookmarks, reports |
-| `app/relation` | Relations: follows, followers, blocks, mutes, visibility scope |
-| `app/message` | Messages: direct-message conversations and delivery |
-| `app/realtime` | Realtime: long-lived connection gateway (WebSocket) |
-| `app/search` | Search and topics: full-text search, topic normalisation |
-| `app/moderation` | Moderation and enforcement: automated/manual review, decisions and write-back |
+| `content` (planned) | Content: creating, editing, publishing, unpublishing and deleting posts, plus their publish state |
+| `media` (planned) | Media: upload, chunking, transcoding scheduling, metadata |
+| `feed` (planned) | Feed / recommendations: pagination, de-duplication, refresh and continuation |
+| `interaction` (planned) | Interactions: likes, comments, reposts, bookmarks, reports |
+| `relation` (planned) | Relations: follows, followers, blocks, mutes, visibility scope |
+| `message` (planned) | Messages: direct-message conversations and delivery |
+| `realtime` (planned) | Realtime: long-lived connections (WebSocket) |
+| `search` (planned) | Search and topics: full-text search, topic normalisation |
+| `moderation` (planned) | Moderation and enforcement: automated/manual review, decisions and write-back |
 
 ## Domain packages
 
@@ -37,10 +40,10 @@ One package per business resource (`post/`, `comment/`, `follow/`, ...); the fou
 
 | File | Responsibility |
 | --- | --- |
-| `model.go` | Domain objects and invariants; no proto dependency, no storage tags |
+| `model.go` | Domain objects and invariants; no transport or storage tags |
 | `service.go` | Use cases: the business capabilities exposed to callers |
 | `repository.go` | **Declares only** the storage read/write interface; the implementation is not here (see below) |
-| `handler.go` | HTTP/gRPC adapter: proto ↔ domain objects, kept thin |
+| `handler.go` | HTTP adapter: transport DTO ↔ domain objects, kept thin |
 
 - Calls inside the package go one way: `handler → service → repository`.
 - If a single file is enough, do not split it; split per the table above once it grows.
@@ -50,7 +53,7 @@ One package per business resource (`post/`, `comment/`, `follow/`, ...); the fou
 Core principle: **an interface belongs to the side that uses it, not to the side that implements it.** The domain package needs storage, so the domain package declares the storage interface; `platform/` only implements it.
 
 ```
-cmd/<service>/main.go                      <- wiring point: the only place importing both sides
+cmd/<module>/main.go                       <- wiring point: the only place importing both sides
    ├──────────► internal/<domain>/         declares the XxxRepository interface (the user)
    └──────────► internal/platform/<store>/ implements XxxRepository
                         │
@@ -78,24 +81,27 @@ cmd/<service>/main.go                      <- wiring point: the only place impor
 - **Go packages must not be named `shared` / `common` / `util`** (the pre-existing frontend `web/src/utils/` is not covered by this rule): they have no ownership, become a "dependency sink" everyone relies on, and turn into a source of import cycles as the project grows.
 - **When a two-way dependency appears there are only two options**: (1) **redraw the package boundary** (merge the two, or assign ownership clearly to one side); (2) **make it one-way with interface injection**. **There is no third option of "extract a shared package".**
 - A little deliberate duplication is acceptable: the same data may have a projection defined in several places. When an upstream field changes, each place **fails to compile** — nothing drifts silently. If the duplication grows hard to maintain, the signal is that **the package boundary is wrong** (merge or reassign ownership), not that a shared package is needed.
-- **This section does not apply across services**: cross-service communication goes only through the proto under `api/`. `pkg/` is a reusable **infrastructure library** (config / log / error / ID), not a domain shared layer.
+- **Across modules the same three ways apply**, minus the shared-package escape: import the other module's **public package** only, never its `internal/`. `pkg/` is a reusable **infrastructure library** (config / log / error / ID), not a domain shared layer.
 
-## Service isolation
+## Module isolation
 
-- The parent directory of `internal/` is the service, so **`app/<service>/internal/...` may only be imported from that service's own subtree**;
-  a cross-service reference will not compile — to go cross-service, change the proto under `api/` and call over RPC.
+- The parent directory of `internal/` is the module, so **`app/<module>/internal/...` may only be imported from that module's own subtree**;
+  a cross-module reference will not compile. This is the module boundary — enforced by the compiler, not by review.
+- To call another module: **the consumer declares a narrow interface** (e.g. `feed` declares `PostReader`), and `cmd/` injects the
+  other module's implementation. When a module is later split into its own process, only the wiring changes — an adapter that
+  implements the same interface over RPC replaces the local call. Business code is untouched.
 
 ## Where things live (backend changes)
 
 | What you want to do | Go here |
 | --- | --- |
-| Model / use case / **repository interface** of a business capability | `app/<service>/internal/<domain>/` |
-| Implementation of an external endpoint (proto ↔ domain object) | `app/<service>/internal/<domain>/handler.go` |
-| **Concrete implementations** of storage / cache / MQ / external calls, and facility wiring | `app/<service>/internal/platform/<subpackage>/` |
-| Injecting implementations into a domain package (dependency wiring) | `app/<service>/cmd/<service>/main.go` |
-| Config fields or config files | `app/<service>/configs/` |
-| Process startup logic | `app/<service>/cmd/<service>/main.go` |
-| Adding or changing an external endpoint / internal RPC | root `api/<domain>/v1/*.proto` (must run `make gen` afterwards) |
+| Model / use case / **repository interface** of a business capability | `app/<module>/internal/<domain>/` |
+| Implementation of an external endpoint (DTO ↔ domain object) | `app/<module>/internal/<domain>/handler.go` |
+| **Concrete implementations** of storage / cache / MQ / external calls, and facility wiring | `app/<module>/internal/platform/<subpackage>/` |
+| Injecting implementations into a domain package (dependency wiring) | `app/<module>/cmd/<module>/main.go` |
+| Config fields or config files | `app/<module>/configs/` |
+| Process startup logic | `app/<module>/cmd/<module>/main.go` |
+| Adding or changing an external endpoint | route in `app/<module>/<module>.go` + method in `handler.go` |
 
 ## Go code conventions
 
@@ -111,20 +117,20 @@ cmd/<service>/main.go                      <- wiring point: the only place impor
 
 ```bash
 # repository-wide (root Makefile)
-make build         # build all services
+make build         # build the binary
 make test          # go test ./...
 make test-race     # go test -race ./...   (this is what CI runs)
 make lint
 make fmt
 
-# build and start a single service (example: identity)
-go build -o bin/identity ./app/identity/cmd/identity
-./bin/identity -http 127.0.0.1:8000 -grpc 127.0.0.1:9000
-curl http://127.0.0.1:8000/v1/identity/ping   # => {"service":"identity"}
+# build and start the process
+go build -o bin/server ./app/cmd/server
+./bin/server -conf app/configs/server.yaml
+curl http://127.0.0.1:8000/healthz   # => {"status":"ok"}
 ```
 
 ## Boundaries
 
-- Services talk only through gRPC contracts, never through Go package-level interfaces (root file §5.3).
-- **Single writer per state**: only the owning service may write a given kind of state; other services read it or submit change requests.
+- Modules talk through Go interfaces declared by the consumer, never by importing each other's `internal/`.
+- **Single writer per state**: only the owning module may write a given kind of state; other modules read it or submit change requests.
 - Local dependencies (PostgreSQL / Redis / Kafka / MinIO / Elasticsearch) are started with `make compose-up` at the repository root.

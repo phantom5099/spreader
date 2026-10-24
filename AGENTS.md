@@ -12,12 +12,12 @@
 > this file is for agents.
 >
 > **Trust configuration over copied lists**: commands, lint rules, versions and CI steps are
-> authoritative in `Makefile`, `.golangci.yml`, `buf.yaml`, `.github/workflows/` and `package.json`.
+> authoritative in `Makefile`, `.golangci.yml`, `.github/workflows/` and `package.json`.
 > This file does not duplicate those lists — copies go stale. Read the authoritative files when you
 > need details; do not rely on this file's memory of them.
 >
 > **Multiple AGENTS.md files apply by proximity**: the per-directory files are `web/AGENTS.md`
-> (frontend), `app/AGENTS.md` (Go services) and `pkg/AGENTS.md` (Go shared libraries). When working
+> (frontend), `app/AGENTS.md` (Go backend) and `pkg/AGENTS.md` (Go shared libraries). When working
 > on a file inside one of those directories, **the nearest file wins**; this file covers
 > repository-level rules only and does not repeat language-level details.
 
@@ -28,8 +28,8 @@
 | Item | Detail |
 | --- | --- |
 | Project | **spreader** — open-source social media platform (publishing / feed / interactions / DMs / relations / search) |
-| Shape | Server-side microservices plus a web frontend |
-| Backend | Go 1.26.1 + Kratos v3, **one set of proto generating both HTTP and gRPC** |
+| Shape | **Modular monolith**: one backend process, business domains are Go packages; split into more processes only on a measured signal |
+| Backend | Go 1.26.1 + Kratos v3, explicit HTTP routes over plain JSON structs |
 | Frontend | React 19 + Vite + TypeScript + Zustand + React Router (`web/`) |
 | Data and middleware | PostgreSQL / Redis / Kafka (KRaft) / S3-compatible object storage / Elasticsearch |
 | License | MIT (see `LICENSE`) |
@@ -40,9 +40,11 @@
 
 spreader is a social media platform covering the full chain: publishing posts, consuming a feed,
 likes/comments/reposts, follows and blocks, direct messages and notifications, search and topics,
-content moderation and enforcement. The design goal is a horizontally scalable microservice
-architecture: only REST and WebSocket are exposed externally, services talk to each other over gRPC
-contracts only, and cross-service state advances through domain events.
+content moderation and enforcement. It is built as a **modular monolith**: one backend process
+serves HTTP, async jobs and scheduled jobs; business domains are separated by Go packages, not by
+network hops. Only on a measured signal (long-lived connections exhausting memory, transcoding
+degrading request latency, restarts dropping connections) is a process split out — and business
+domains are **never** split by process.
 
 Product requirements live in the PRD; architecture and technology choices live in the architecture
 design document (location and scope of validity: §9).
@@ -51,32 +53,39 @@ design document (location and scope of validity: §9).
 
 ## 2. Repository structure (navigation map)
 
-Single-module repository (one `go.mod`, module path `github.com/phantom5099/spreader`). Each service
-is a directory under `app/` — it is **not** a separate module.
+Single-module repository (one `go.mod`, module path `github.com/phantom5099/spreader`). Each module
+is a directory under `app/` — it is **not** a separate module and **not** a separate process.
+
+**Directory rule: directories follow code, never pre-allocate.** Create `app/<module>/` only when
+its first line of business code is written. Empty scaffolding directories misrepresent the
+architecture and are not tracked by git anyway.
 
 ```
 .
-├── api/                        # the only source of external contracts (proto); generated output sits beside the proto
-│   └── <domain>/v1/*.proto     # naming: api/<domain>/<version>, e.g. api/content/v1
-├── app/                        # the microservices
-│   └── <service>/
-│       ├── cmd/<service>/      # process entry point: wiring and lifecycle only
-│       ├── configs/            # runtime config for this service (no secrets)
-│       └── internal/
+├── app/
+│   ├── cmd/server/main.go      # process entry point: config, infra, module wiring, lifecycle
+│   ├── configs/                # runtime config for this process (no secrets)
+│   ├── platform/               # process-wide facilities that know no domain type
+│   │   ├── config/             # config loading
+│   │   ├── metrics/            # per-route RED metrics, /metrics + pprof admin server
+│   │   └── httpx/              # panic recovery filter, problem+json encoder
+│   └── <module>/               # one package per business module
+│       ├── <module>.go         # the ONLY public surface: New(deps) + Register(routes)
+│       ├── infra.go            # optional: connections the module owns
+│       └── internal/           # unreachable from cmd/ — enforced by the compiler
 │           ├── <domain>/       # one package per business resource
-│           └── platform/       # cross-domain facilities: config loading, DB, cache, MQ, and repository implementations
-├── pkg/                        # libraries shared across services (config, logging, errors, IDs)
+│           └── platform/       # adapters: DB, cache, MQ, external calls
+├── pkg/                        # reusable infrastructure libraries (empty today; do not pre-create content)
 ├── deploy/
 │   ├── compose/                # local dependency orchestration (dev)
 │   └── k8s/                    # Kubernetes manifests (prod)
 ├── build/docker/Dockerfile     # image build template
 ├── web/                        # frontend (standalone Vite project with its own package.json)
 ├── .github/workflows/          # CI: ci.yml (backend) / web-ci.yml (frontend)
-├── Makefile                    # backend development command entry point
-└── buf.yaml / buf.gen.yaml     # proto lint and generation config
+└── Makefile                    # backend development command entry point
 ```
 
-Per-service structure, domain package rules and the responsibility of each service: see `app/AGENTS.md`.
+Per-module structure, domain package rules and the responsibility of each module: see `app/AGENTS.md`.
 
 ---
 
@@ -84,13 +93,14 @@ Per-service structure, domain package rules and the responsibility of each servi
 
 | What you want to do | Go here |
 | --- | --- |
-| Change/add an external endpoint or an internal RPC | `api/<domain>/v1/*.proto` (must run `make gen` afterwards) |
-| Change a business capability (model / use case / repository interface) | `app/<service>/internal/<domain>/` |
-| Change the implementation of an external endpoint (proto ↔ domain object) | `app/<service>/internal/<domain>/handler.go` |
-| Change storage / cache / MQ / external-call implementations | `app/<service>/internal/platform/<subpackage>/` |
-| Change config fields or config files | `app/<service>/configs/` |
-| Change process startup logic | `app/<service>/cmd/<service>/main.go` |
-| Change a cross-service shared library | `pkg/` |
+| Change/add an external endpoint | route in `app/<module>/<module>.go` + method in `internal/<domain>/handler.go` |
+| Change a request/response body | `app/<module>/internal/<domain>/dto.go` |
+| Change a business capability (model / use case / repository interface) | `app/<module>/internal/<domain>/` |
+| Change the implementation of an external endpoint (DTO ↔ domain object) | `app/<module>/internal/<domain>/handler.go` |
+| Change storage / cache / MQ / external-call implementations | `app/<module>/internal/platform/<subpackage>/` |
+| Change config fields or config files | `app/platform/config/` + `app/configs/` |
+| Change process startup logic | `app/cmd/server/main.go` |
+| Change a reusable infrastructure library | `pkg/` |
 | Change a frontend page | `web/src/pages/` |
 | Change a frontend component | `web/src/components/<module>/` (directory name matches the module) |
 | Change frontend data access | `web/src/mocks/api.ts` (the only data entry point; details in `web/AGENTS.md`) |
@@ -128,7 +138,6 @@ Per-service structure, domain package rules and the responsibility of each servi
 - Never treat "looks correct" as "done" — if it was not verified, say so plainly.
 - **Never delete or skip existing test cases, or loosen lint rules, to make checks pass.** Report failing existing tests; do not hide them.
 - Never invent interfaces, fields, commands or file paths; when unsure, check this file or read the source.
-- **Never hand-edit generated files** (`*.pb.go` under `api/`): change the source (proto) and regenerate.
 - Never commit build output (`bin/`, `dist/`, `node_modules/`, ...), secrets or `.env`.
 - Replies: no pleasantries, no "you're right" agreement padding, no emoji. Give results and facts;
   when you disagree, **state clearly that you agree or disagree**.
@@ -148,17 +157,19 @@ Per-service structure, domain package rules and the responsibility of each servi
 - Go (`app/`, `pkg/`) → `app/AGENTS.md`; shared libraries have further constraints in `pkg/AGENTS.md`.
 - TypeScript / React (`web/`) → `web/AGENTS.md`.
 
-### 5.3 Contract and interface conventions (`api/`)
+### 5.3 Contract and interface conventions
 
-- **Contract first**: external endpoints and internal RPC are both defined by the proto under `api/`; services never talk through Go package-level interfaces.
-- Proto package path `api/<domain>/<version>`; service names are `<domain>Service` (`buf.yaml` sets `service_suffix: Service`).
-- **One service per file**: `google.api.http` route annotations go directly on the RPCs inside the service; no separate `*Http` service.
-- `<domain>_error_reason.proto` holds a bare `enum ErrorReason` only and **imports no proto**; business code builds errors with
-  `kratos errors.NotFound(ErrorReason_X.String(), ...)`.
-- **Generated output is committed with the source**: `*.pb.go` under `api/` (including `_grpc` / `_http` / `_error_reason`) is tracked;
-  CI re-runs `buf generate` and checks for drift (see `ci.yml`), so always run `make gen` locally after changing a proto.
+- **The HTTP surface is the contract.** There is no IDL and no code generation: routes are registered explicitly in
+  `app/<module>/<module>.go`, bodies are plain structs in `internal/<domain>/dto.go`.
+- **Module-to-module calls are Go interfaces.** Same process, so serialize nothing: the consumer declares a narrow
+  interface and `cmd/` injects the implementation (see `app/AGENTS.md`). A module may import another module's public
+  package only; `internal/` is unreachable across modules by the compiler.
+- **JSON conventions** (no schema tool checks these, so be strict): `snake_case` field names; 64-bit integers stay
+  numbers; enums are their uppercase string names (`LOGIN_TYPE_PHONE_OTP`); omit empty optional fields.
+- **Business error codes** are typed string constants (`login.ErrorReason`), never inline literals, and are part of the
+  public contract — renaming one is a breaking change.
 - External error bodies are uniformly `application/problem+json` (RFC 9457) with a machine-readable business code.
-- **Single writer per state**: only the owning service may write a given kind of state; other services read it or submit change requests.
+- **Single writer per state**: only the owning module may write a given kind of state; other modules read it or submit change requests.
 - **Config and secrets**: images contain no config or secrets; everything is injected from the environment. Never commit secrets, certificates or `.env` (see also §10).
 - **Private docs**: `docs-hide/` and `docs-ignore/` are in `.gitignore` and are not committed (usage: §9).
 
@@ -173,8 +184,8 @@ Pick what is needed; do not pile up tests for show:
 | Type | Purpose | Typical approach |
 | --- | --- | --- |
 | Unit (white box) | Verify the internal logic and branches of a function/method | Go `go test`; Vitest on the frontend, test files next to the source (`*.test.ts`) |
-| Integration | Verify collaboration between components (service + real dependencies) | Bring up the `deploy/compose` dependencies, then run |
-| Contract | Verify proto/REST contracts are not broken | `buf breaking`, interface alignment checks |
+| Integration | Verify collaboration between components (module + real dependencies) | Bring up the `deploy/compose` dependencies, then run |
+| Contract | Verify the HTTP contract is not broken | endpoint tests: status, body fields, error codes |
 | Smoke | Quickly confirm "it starts and the main path runs" | Build + start + ping probe |
 | End-to-end / black box | Verify from outside, by inputs and outputs only | Exercise the external HTTP/WebSocket interfaces |
 | Regression | After a bug fix, confirm existing behaviour still holds | Re-run the relevant cases |
@@ -228,13 +239,11 @@ Tests target code behaviour (input → output / side effects), not filesystem st
 ```bash
 # ---- backend ----
 make help          # list all targets
-make proto-tools   # install buf and the three protoc plugins (versions pinned to buf.gen.yaml)
-make gen           # buf dep update + lint + generate (proto -> api/)
-make build         # build all services
+make build         # build the binary
 make lint          # golangci-lint
 make fmt           # format
 make test          # run tests
-make init          # one-shot setup: .env + dependencies + proto generation + tidy
+make init          # one-shot setup: .env + dependencies + tidy
 
 make compose-up    # start local dependencies (PG/Redis/Kafka/MinIO/ES)
 make compose-down  # stop local dependencies (keep data volumes)
@@ -246,7 +255,7 @@ MinIO `19000` (console `19001`), Elasticsearch `19200`.
 
 Environment variable template: `.env.example`. Images contain no config or secrets; everything is injected from the environment.
 
-> Building and starting a single service: `app/AGENTS.md`. Frontend commands and the demo account: `web/AGENTS.md`.
+> Building and starting the process: `app/AGENTS.md`. Frontend commands and the demo account: `web/AGENTS.md`.
 
 ---
 
@@ -257,9 +266,8 @@ Environment variable template: `.env.example`. Images contain no config or secre
   `git clean -fd`, `git stash`, `git commit --no-verify`, force push.
 - Commit messages in the imperative mood; Conventional Commits recommended: `feat(feed): show "↑ N new posts" hint`.
 - CI gates (`.github/workflows/`, the files are authoritative):
-  - `ci.yml`: `buf lint` / `buf breaking` (PR) / generated-output drift check / `golangci-lint` / `go build` / `go vet` / `go test -race`.
+  - `ci.yml`: `golangci-lint` / `go build` / `go vet` / `go test -race`.
   - `web-ci.yml`: `bun install --frozen-lockfile` / `lint` / `typecheck` / `test` / `build`.
-- **After changing a proto you must run `make gen` locally and commit the generated output**, otherwise the CI drift check fails.
 - Do not bypass hooks or skip checks; fix the root cause instead of using skip flags.
 
 ---
