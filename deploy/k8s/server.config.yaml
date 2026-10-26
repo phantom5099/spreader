@@ -79,6 +79,7 @@ sms:
 server:
   # pod 内必须监听 0.0.0.0：127.0.0.1 会让 Service 转发全部失败
   http_addr: 0.0.0.0:8000
+  request_timeout_seconds: 10         # 单请求总预算上界（兜底，缺省 10s）：各路由在 handler 内按依赖收窄，必须大于最宽的路由预算 8s
 
 metrics:
   addr: 0.0.0.0:9100                  # Prometheus 经 metrics NodePort(30100) 采集

@@ -21,6 +21,18 @@ type Handler struct {
 	verifier HumanVerifier
 }
 
+// 路由级请求预算：外层 khttp.Timeout 是最后防线，这里才是每条路径的真实上限。
+// 含外部通道的路径必须更宽——公网 TLS 握手 + RTT 与短信主备降级会吃掉大部分预算；
+// 收窄的价值在于超时点落在具体调用上（错误可映射），而不是整条请求被外层统一截断。
+const (
+	budgetLocal    = 3 * time.Second // 纯本地依赖：Redis + PG
+	budgetExternal = 8 * time.Second // 叠加短信 / 邮件 / 第三方等跨公网调用
+
+	// MaxBudget 最宽的路由预算。进程级请求预算必须不小于它，否则路由级预算会被外层提前截断，
+	// 收窄就失去了「让超时落在具体调用上」的意义。启动时据此校验配置。
+	MaxBudget = budgetExternal
+)
+
 // NewHandler 构建。
 func NewHandler(svc *Service, users UserRepository, sessions SessionIssuer, verifier HumanVerifier) *Handler {
 	return &Handler{svc: svc,
@@ -84,7 +96,9 @@ func (h *Handler) SendOtp(c khttp.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return MapError(EBadRequest("invalid request body"))
 	}
-	cd, err := h.svc.SendOtp(c, req.Channel, req.Destination, req.Nation,
+	ctx, cancel := context.WithTimeout(c, budgetExternal)
+	defer cancel()
+	cd, err := h.svc.SendOtp(ctx, req.Channel, req.Destination, req.Nation,
 		req.Scene, decodeCaptchaToken(req.CaptchaToken), clientIP(c.Request()), "")
 	if err != nil {
 		return MapError(err)
@@ -121,7 +135,10 @@ func (h *Handler) Login(c khttp.Context) error {
 	default:
 		return MapError(EUnsupportedLoginType("missing credential"))
 	}
-	res, err := h.svc.Login(c, in)
+	// 第三方登录分支要跨公网换取身份，与短信同档预算。
+	ctx, cancel := context.WithTimeout(c, budgetExternal)
+	defer cancel()
+	res, err := h.svc.Login(ctx, in)
 	if err != nil {
 		return MapError(err)
 	}
@@ -142,7 +159,9 @@ func (h *Handler) IssueCaptcha(c khttp.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return MapError(EBadRequest("invalid request body"))
 	}
-	ch, err := h.verifier.Issue(c, &ChallengeRequest{
+	ctx, cancel := context.WithTimeout(c, budgetLocal)
+	defer cancel()
+	ch, err := h.verifier.Issue(ctx, &ChallengeRequest{
 		Scene:    ChallengeScene(req.Scene),
 		ClientIP: clientIP(c.Request()),
 		DeviceID: req.DeviceID,
@@ -164,7 +183,9 @@ func (h *Handler) RefreshToken(c khttp.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return MapError(EBadRequest("invalid request body"))
 	}
-	access, refresh, expiresIn, _, err := h.sessions.Refresh(c, req.RefreshToken, "")
+	ctx, cancel := context.WithTimeout(c, budgetLocal)
+	defer cancel()
+	access, refresh, expiresIn, _, err := h.sessions.Refresh(ctx, req.RefreshToken, "")
 	if err != nil {
 		return MapError(err)
 	}
@@ -178,11 +199,13 @@ func (h *Handler) RefreshToken(c khttp.Context) error {
 
 // Logout 登出当前会话（天然幂等）。
 func (h *Handler) Logout(c khttp.Context) error {
-	info, err := h.authenticate(c, c.Request())
+	ctx, cancel := context.WithTimeout(c, budgetLocal)
+	defer cancel()
+	info, err := h.authenticate(ctx, c.Request())
 	if err != nil {
 		return err
 	}
-	if rerr := h.sessions.Revoke(c, *info); rerr != nil {
+	if rerr := h.sessions.Revoke(ctx, *info); rerr != nil {
 		return MapError(rerr)
 	}
 	return c.Result(http.StatusOK, &EmptyDTO{})
@@ -190,11 +213,13 @@ func (h *Handler) Logout(c khttp.Context) error {
 
 // GetMe 当前账号（含 onboarding_required）：登录后引导资料完善，仅提示不拦截。
 func (h *Handler) GetMe(c khttp.Context) error {
-	info, err := h.authenticate(c, c.Request())
+	ctx, cancel := context.WithTimeout(c, budgetLocal)
+	defer cancel()
+	info, err := h.authenticate(ctx, c.Request())
 	if err != nil {
 		return err
 	}
-	u, err := h.users.GetByID(c, info.UserID)
+	u, err := h.users.GetByID(ctx, info.UserID)
 	if err != nil {
 		return MapError(err)
 	}
@@ -203,7 +228,9 @@ func (h *Handler) GetMe(c khttp.Context) error {
 
 // ThirdPartyAuthorize 签发一次性 state → 返回第三方授权页地址（web 流程第一步）。
 func (h *Handler) ThirdPartyAuthorize(c khttp.Context) error {
-	u, err := h.svc.ThirdPartyAuthorize(c, c.Query().Get("provider"), c.Query().Get("platform"))
+	ctx, cancel := context.WithTimeout(c, budgetLocal)
+	defer cancel()
+	u, err := h.svc.ThirdPartyAuthorize(ctx, c.Query().Get("provider"), c.Query().Get("platform"))
 	if err != nil {
 		return MapError(err)
 	}
@@ -212,7 +239,9 @@ func (h *Handler) ThirdPartyAuthorize(c khttp.Context) error {
 
 // ThirdPartyCallback 授权回跳：校验 state → 返回一次性 code 给前端调统一 Login。
 func (h *Handler) ThirdPartyCallback(c khttp.Context) error {
-	code, err := h.svc.ThirdPartyCallback(c, c.Query().Get("state"), c.Query().Get("code"))
+	ctx, cancel := context.WithTimeout(c, budgetLocal)
+	defer cancel()
+	code, err := h.svc.ThirdPartyCallback(ctx, c.Query().Get("state"), c.Query().Get("code"))
 	if err != nil {
 		return MapError(err)
 	}

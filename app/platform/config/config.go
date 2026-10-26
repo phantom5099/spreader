@@ -13,6 +13,9 @@ import (
 type Config struct {
 	Server struct {
 		HTTPAddr string `yaml:"http_addr"` // HTTP 监听地址
+		// 单请求总预算上界（秒）。这是最后防线：各路由在 handler 内按自身依赖收窄，
+		// 此处只保证没有任何请求能无限挂住。0 取内置兜底 10s。
+		RequestTimeoutSeconds int64 `yaml:"request_timeout_seconds"`
 	}
 	Metrics struct {
 		Addr string `yaml:"metrics_addr"` // 管理端点（/metrics + pprof）；Prometheus 容器采集时需 0.0.0.0

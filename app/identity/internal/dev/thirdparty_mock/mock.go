@@ -70,9 +70,12 @@ func (p *Provider) ExchangeIdentity(ctx context.Context, cred login.ThirdPartyCr
 	}, nil
 }
 
-// Confirm 模拟授权页「同意」：派生并固定本次授权的模拟身份，签发一次性 code。
-// 脚本一步模拟：携 state 调本方法即得 code（该 state 在 authorize 阶段已由服务端签发）。
-func (p *Provider) Confirm(ctx context.Context, state string) (string, error) {
+// IssueCode mock 平台收到授权请求后的应答：签发一次性 code，绑定本次授权的模拟身份。
+//
+// 语义边界：这里是「假平台接收请求 → 返回结果」，与真实平台处理同意的对外行为一致。
+// 它不属于 login.ThirdPartyProvider —— 真实平台没有「服务端代用户同意」的入口，
+// 授权动作发生在用户浏览器里（见 RegisterRoutes 授权页的表单提交）。
+func (p *Provider) IssueCode(ctx context.Context, state string) (string, error) {
 	if state == "" {
 		return "", login.EOauthStateInvalid()
 	}

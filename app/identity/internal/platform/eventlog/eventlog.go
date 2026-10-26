@@ -1,5 +1,4 @@
 // Package eventlog 事件出口：领域事件 → 结构化日志 + 登录审计同步落库。
-// 4 个事件当前无跨服务订阅方，故不接 broker；审计是"写回来"，绕一趟 MQ 只会更慢且会丢。
 package eventlog
 
 import (

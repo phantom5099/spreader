@@ -15,8 +15,9 @@ import (
 )
 
 // smtpTimeout 覆盖拨号与会话：smtp 命令本身不接收 ctx，只能靠连接 deadline 兜底。
-// 与短信通道一致取 5s，避免登录请求被一次卡住的握手拖长。
-const smtpTimeout = 5 * time.Second
+// 必须显著小于 SendOtp 的路由预算（login.budgetExternal 8s）：主备通道各占一次，
+// 超时值比路由预算还宽就永远不会触发，只会让整条请求被外层统一截断。
+const smtpTimeout = 3 * time.Second
 
 // Console 开发通道：验证码打印到日志（dev.* 路由默认）。
 type Console struct{ Log *slog.Logger }

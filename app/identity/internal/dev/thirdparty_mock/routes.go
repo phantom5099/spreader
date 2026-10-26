@@ -7,8 +7,15 @@ import (
 	khttp "github.com/go-kratos/kratos/v3/transport/http"
 )
 
-// RegisterRoutes 把 mock 授权页与确认端点挂到 identity 的 HTTP 服务上（与业务同端口、同地址）。
-// 仅开发/测试用：真实平台对接后整个 dev/ 目录随 build tag 排除生产构建。。
+// RegisterRoutes 把 mock 平台的授权端点挂到 identity 的 HTTP 服务上（与业务同端口、同地址）。
+//
+// 定位：开发期的本地假平台。只复刻真实平台对外的两个行为——返回授权页、接收授权请求后签发
+// 一次性 code 并回跳（302）。它不参与业务装配：不经 login.ThirdPartyProvider 调用，
+// 而 Provider 实现的接口方法只用于「code → 身份」的兑换。
+//
+// 生产隔离靠运行期双闸，不靠 build tag：buildProviders 在 production 或
+// allow_insecure_providers=false 时使 mockProvider 为 nil，App.registerDev 随之不装配，
+// 本函数根本不会被调用。
 func RegisterRoutes(r *khttp.Router, p *Provider, log *slog.Logger) {
 	r.GET("/authorize", func(c khttp.Context) error {
 		state := c.Request().URL.Query().Get("state")
@@ -27,19 +34,18 @@ func RegisterRoutes(r *khttp.Router, p *Provider, log *slog.Logger) {
 </body></html>`))
 	})
 
-	// 确认授权：签发一次性 code → 302 回 identity 的 callback（浏览器流）；
-	// 同时返回 JSON {code, redirect}（脚本流：一步模拟取 code 后直接调统一 Login）。
+	// 接收授权请求 → 签发一次性 code → 302 回 identity 的 callback。这是真实平台的对外行为：
+	// 只回跳转，code 在 Location 里，不额外附 JSON body。
 	r.POST("/confirm", func(c khttp.Context) error {
 		state := c.Request().PostFormValue("state")
 		if state == "" {
 			return c.String(http.StatusBadRequest, "missing state")
 		}
-		code, err := p.Confirm(c, state)
+		code, err := p.IssueCode(c, state)
 		if err != nil {
 			return c.String(http.StatusBadRequest, err.Error())
 		}
-		redirect := p.CallbackRedirect(code, state)
-		c.Response().Header().Set("Location", redirect)
-		return c.JSON(http.StatusFound, map[string]string{"code": code, "redirect": redirect})
+		c.Response().Header().Set("Location", p.CallbackRedirect(code, state))
+		return c.String(http.StatusFound, "")
 	})
 }

@@ -34,13 +34,32 @@ type Client struct {
 	rdb redis.UniversalClient
 }
 
+// 驱动级超时：必须小于路由预算（login.budgetLocal 3s）。比预算还宽就没意义——永远是上层 ctx
+// 先到期，驱动语义（连不上 / 读超时 / 池满）全被抹平成一句 deadline exceeded。
+const (
+	dialTimeout = 1 * time.Second
+	ioTimeout   = 800 * time.Millisecond
+	poolTimeout = 1 * time.Second
+	// noRetry 禁用自动重试。go-redis 默认 3 次带 backoff，对 INCR 这类非幂等命令会重复执行，
+	// 把频控计数凭空放大，也把错误一路推迟到请求超时。
+	noRetry = -1
+)
+
 // New 按形态建立客户端，并立即验证连通性（构造即验证：go-redis 惰性连接，
 // 不在此处拨号的话，地址错误/服务未启动会潜伏到首个请求才暴露）。
 func New(ctx context.Context, o *Options) (*Client, error) {
 	var u redis.UniversalClient
 	switch o.Mode {
 	case "cluster":
-		u = redis.NewClusterClient(&redis.ClusterOptions{Addrs: o.Addrs, Password: o.Password})
+		u = redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs:        o.Addrs,
+			Password:     o.Password,
+			DialTimeout:  dialTimeout,
+			ReadTimeout:  ioTimeout,
+			WriteTimeout: ioTimeout,
+			PoolTimeout:  poolTimeout,
+			MaxRetries:   noRetry,
+		})
 	case "sentinel":
 		if o.MasterName == "" {
 			return nil, errors.New("sentinel mode requires master_name")
@@ -50,6 +69,11 @@ func New(ctx context.Context, o *Options) (*Client, error) {
 			SentinelAddrs: o.Addrs,
 			Password:      o.Password,
 			DB:            o.DB,
+			DialTimeout:   dialTimeout,
+			ReadTimeout:   ioTimeout,
+			WriteTimeout:  ioTimeout,
+			PoolTimeout:   poolTimeout,
+			MaxRetries:    noRetry,
 		})
 	case "", "standalone":
 		addr := ""
@@ -57,9 +81,14 @@ func New(ctx context.Context, o *Options) (*Client, error) {
 			addr = o.Addrs[0]
 		}
 		u = redis.NewClient(&redis.Options{
-			Addr:     addr,
-			Password: o.Password,
-			DB:       o.DB,
+			Addr:         addr,
+			Password:     o.Password,
+			DB:           o.DB,
+			DialTimeout:  dialTimeout,
+			ReadTimeout:  ioTimeout,
+			WriteTimeout: ioTimeout,
+			PoolTimeout:  poolTimeout,
+			MaxRetries:   noRetry,
 		})
 	default:
 		return nil, errors.New("unknown redis mode: " + o.Mode)

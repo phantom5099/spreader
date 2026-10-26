@@ -28,6 +28,11 @@ import (
 	"github.com/phantom5099/spreader/app/platform/metrics"
 )
 
+// MaxRequestBudget 最宽的路由预算，即 handler 内部收窄的上界。
+// 进程级请求预算必须不小于它，否则路由级 deadline 永远不会先到，收窄等于白设。
+// 入口层用它在启动时校验配置（internal 不可跨出模块，故在此转发）。
+const MaxRequestBudget = login.MaxBudget
+
 // Deps 由进程入口构造后注入：连接池与配置的生命周期归入口所有，模块不自己建。
 type Deps struct {
 	Config     *config.Config
@@ -40,7 +45,10 @@ type Deps struct {
 type App struct {
 	log     *slog.Logger
 	handler *login.Handler
-	mock    *thirdparty_mock.Provider
+	// registerDev 开发期附加路由（mock 平台的授权页端点）的装配钩子，生产环境为 nil。
+	// 用函数而不是 *thirdparty_mock.Provider 持有：mock 是「本地假平台」，不是业务 provider。
+	// 它只在 dev 存在对外端点，不该成为模块的常驻依赖，也不该出现在装配结果的结构上。
+	registerDev func(*khttp.Server)
 }
 
 // New 装配身份模块。返回错误表示配置非法，调用方应直接退出而不是带病运行。
@@ -123,7 +131,15 @@ func New(d Deps) (*App, error) {
 			PwdCfg:          login.PasswordGuardConfig{MaxFails: cfg.Password.MaxFails},
 		},
 	})
-	return &App{log: log, handler: login.NewHandler(svc, db, issuer, verifier), mock: mockProvider}, nil
+	app := &App{log: log, handler: login.NewHandler(svc, db, issuer, verifier)}
+	if mockProvider != nil {
+		// 双闸（非 production 且 allow_insecure_providers）已通过：挂上假平台的授权端点。
+		app.registerDev = func(hs *khttp.Server) {
+			// 与业务同端口（public_base_url 即本服务地址，回调地址天然一致）。
+			thirdparty_mock.RegisterRoutes(hs.Route("/mock/oauth"), mockProvider, log)
+		}
+	}
+	return app, nil
 }
 
 // Register 把模块的 HTTP 路由挂到 server 上；路径即对外契约。
@@ -137,9 +153,8 @@ func (a *App) Register(hs *khttp.Server) {
 	a.route(r, http.MethodGet, "/me", a.handler.GetMe)
 	a.route(r, http.MethodGet, "/auth/thirdparty/authorize", a.handler.ThirdPartyAuthorize)
 	a.route(r, http.MethodGet, "/auth/thirdparty/callback", a.handler.ThirdPartyCallback)
-	if a.mock != nil {
-		// mock 授权页与业务同端口（public_base_url 即服务地址，回调地址天然一致）
-		thirdparty_mock.RegisterRoutes(hs.Route("/mock/oauth"), a.mock, a.log)
+	if a.registerDev != nil {
+		a.registerDev(hs)
 	}
 }
 

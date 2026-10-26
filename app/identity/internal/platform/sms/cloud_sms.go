@@ -17,8 +17,9 @@ import (
 	"github.com/phantom5099/spreader/app/identity/internal/otp"
 )
 
-// httpClient 短信调用超时上限：ctx 无 deadline 时仍能在限定时间内失败。
-var httpClient = &http.Client{Timeout: 5 * time.Second}
+// httpClient 短信调用超时上限。必须显著小于 SendOtp 的路由预算（login.budgetExternal 8s）：
+// 主备通道各占一次，超时值定得比路由预算还宽就永远不会触发，降级也就无从谈起。
+var httpClient = &http.Client{Timeout: 3 * time.Second}
 
 // CloudSMS 腾讯云短信。凭据全部走 env（仓库零秘密）。
 type CloudSMS struct {

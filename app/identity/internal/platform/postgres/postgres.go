@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -24,9 +25,18 @@ type Pool struct {
 	p *pgxpool.Pool
 }
 
+// connectTimeout 单次建连上界。pgx 默认 2 分钟，远长于任何请求预算：显式收到 5s，
+// 让「连不上」快速失败，而不是把一个请求吊到自己的 deadline 才报错。
+const connectTimeout = 5 * time.Second
+
 // New 建立连接池并执行幂等迁移。
 func New(ctx context.Context, dsn string) (*Pool, error) {
-	p, err := pgxpool.New(ctx, dsn)
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConnConfig.ConnectTimeout = connectTimeout
+	p, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
