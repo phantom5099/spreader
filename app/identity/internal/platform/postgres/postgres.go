@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/phantom5099/spreader/app/identity/internal/login"
@@ -110,18 +111,81 @@ func (p *Pool) PGPoolStats() (total, idle, acquired, limit int) {
 	return int(st.TotalConns()), int(st.IdleConns()), int(st.AcquiredConns()), int(st.MaxConns())
 }
 
+const (
+	// sessionRetentionDays 会话行在自然过期后再留存的天数。没有读取方依赖这段宽限
+	// （唯一读 sessions 的查询带 expires_at > now()），纯粹为事后排障复核。
+	sessionRetentionDays = 30
+	// auditRetentionMonths 登录审计留存期（12 个月，按日历月算，不是 365 天）。
+	auditRetentionMonths = 12
+	// cleanupBatchSize 单条 DELETE 的行数上限。
+	cleanupBatchSize = 1000
+	// cleanupMaxBatches 单轮每表的批数上限：一轮最多删 10 万行，
+	// 防止大表上一轮把调用方的超时预算吃光。
+	cleanupMaxBatches = 100
+)
+
+// CleanupStats 单轮清理的删除行数。清理是否真的在推进，只能靠它判断。
+type CleanupStats struct {
+	Sessions   int64
+	LoginAudit int64
+}
+
 // CleanupExpired 清理过期数据：过期 30 天的会话行 + 超过 12 个月的审计行
 // （§4.5 不变量/N7：审计保留 12 个月到期清理；会话稳态规模 = 活跃用户 × 设备数）。
-func (p *Pool) CleanupExpired(ctx context.Context) error {
-	if _, err := p.p.Exec(ctx,
-		`DELETE FROM sessions WHERE expires_at < now() - interval '30 days'`); err != nil {
-		return err
+//
+// 验证码、challenge、AT 撤销标记都不在这里：它们在 Redis，靠 TTL 自过期。
+func (p *Pool) CleanupExpired(ctx context.Context) (CleanupStats, error) {
+	var st CleanupStats
+	n, err := deleteInBatches(ctx, p.p, `
+		DELETE FROM sessions WHERE id IN (
+			SELECT id FROM sessions
+			WHERE expires_at < now() - make_interval(days => $1::int)
+			LIMIT $2
+			FOR UPDATE SKIP LOCKED)`, sessionRetentionDays)
+	st.Sessions = n
+	if err != nil {
+		return st, fmt.Errorf("cleanup sessions: %w", err)
 	}
-	if _, err := p.p.Exec(ctx,
-		`DELETE FROM login_audit WHERE created_at < now() - interval '12 months'`); err != nil {
-		return err
+	n, err = deleteInBatches(ctx, p.p, `
+		DELETE FROM login_audit WHERE id IN (
+			SELECT id FROM login_audit
+			WHERE created_at < now() - make_interval(months => $1::int)
+			LIMIT $2
+			FOR UPDATE SKIP LOCKED)`, auditRetentionMonths)
+	st.LoginAudit = n
+	if err != nil {
+		return st, fmt.Errorf("cleanup login_audit: %w", err)
 	}
-	return nil
+	return st, nil
+}
+
+// deleteInBatches 分批执行一条删除语句，直到删不满一批或达到批数上限。
+//
+// 两点是刻意的：
+//   - 有界。一条无界 DELETE 在大表上要么长时间持锁，要么撞上调用方 deadline 整体回滚，
+//     下一轮面对的仍是同一批行，永远删不完。
+//   - FOR UPDATE SKIP LOCKED（见语句本身）。多副本各自跑清理时各删各的：不重复劳动，
+//     也不互相等锁，顺带避开正在被轮换/登出更新的活跃会话行。
+//
+// ex 取最小接口而非 *pgxpool.Pool，只为了让循环边界能在不连库的情况下被验证。
+type execer interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+func deleteInBatches(ctx context.Context, ex execer, sql string, retention int) (int64, error) {
+	var total int64
+	for i := 0; i < cleanupMaxBatches; i++ {
+		tag, err := ex.Exec(ctx, sql, retention, cleanupBatchSize)
+		if err != nil {
+			return total, err
+		}
+		n := tag.RowsAffected()
+		total += n
+		if n < cleanupBatchSize {
+			break
+		}
+	}
+	return total, nil
 }
 
 // ErrNotFound 会话域哨兵别名（pgx.ErrNoRows 统一映射）。

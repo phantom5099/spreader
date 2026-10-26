@@ -60,5 +60,11 @@ func (i *Infra) Close() {
 // PGPoolStats 供指标采样。
 func (i *Infra) PGPoolStats() (total, idle, acquired, limit int) { return i.db.PGPoolStats() }
 
-// CleanupExpired 清理过期数据（验证码、会话、审计等）。
-func (i *Infra) CleanupExpired(ctx context.Context) error { return i.db.CleanupExpired(ctx) }
+// CleanupStats 转发清理计数（postgres 是 internal，入口层引用不到）。
+type CleanupStats = postgres.CleanupStats
+
+// CleanupExpired 清理 PG 里的过期数据：过期 30 天的会话行、超过 12 个月的审计行。
+// 验证码、challenge、AT 撤销标记都在 Redis 靠 TTL 自过期，不经过这里。
+func (i *Infra) CleanupExpired(ctx context.Context) (CleanupStats, error) {
+	return i.db.CleanupExpired(ctx)
+}

@@ -31,6 +31,11 @@ var (
 		Name: "server_business_events_total",
 		Help: "业务事件计数（登录成败原因/封禁/RT 重放/撤销等；异动 = 被滥用或被攻击的信号）。",
 	}, []string{"event", "reason"})
+
+	cleanupDeleted = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "server_cleanup_deleted_rows_total",
+		Help: "过期数据清理删除行数（恒为 0 而表在涨 = 任务没跑或保留期写错）。",
+	}, []string{"table"})
 )
 
 // Filter 单条路由的 RED 指标。
@@ -81,6 +86,13 @@ func (w *statusWriter) status() int {
 // BusinessEvent 业务事件计数（在 platform/eventlog 的事件出口处调用，与外部依赖可用性无关）。
 func BusinessEvent(event, reason string) {
 	businessTotal.WithLabelValues(event, reason).Inc()
+}
+
+// CleanupDeleted 记录一轮清理删除的行数（table 是常量，不随数据变化：label 红线同理）。
+func CleanupDeleted(table string, rows int64) {
+	if rows > 0 {
+		cleanupDeleted.WithLabelValues(table).Add(float64(rows))
+	}
 }
 
 // ServeAdmin 管理端点：/metrics（Prometheus 抓取）+ /debug/pprof/*（诊断）。

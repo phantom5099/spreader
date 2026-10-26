@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_family ON sessions (family_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id, expires_at);
 
--- 登录审计：经 Kafka 异步批量入库，不占登录路径；写入时已脱敏，保留 12 个月到期清理。
+-- 登录审计：由 eventlog 同步落库，
+-- 写入时已脱敏，保留 12 个月到期清理。
 CREATE TABLE IF NOT EXISTS login_audit (
     id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id           uuid,                   -- 登录失败且账号不存在时为 NULL

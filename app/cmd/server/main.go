@@ -6,6 +6,7 @@ import (
 	"context"
 	"flag"
 	"log/slog"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"os/signal"
@@ -31,8 +32,12 @@ const (
 	// defaultRequestTimeout 请求总预算兜底：配置缺省时的上界。
 	// 必须大于 login 包内最宽的 budgetExternal（8s），否则路由级预算会被外层提前截断。
 	defaultRequestTimeout = 10 * time.Second
+	// cleanupInterval 过期数据清理周期。
+	cleanupInterval = 6 * time.Hour
 	// cleanupTimeout 单轮过期数据清理的上界：正常 <1s，超时只是防挂死。
 	cleanupTimeout = 5 * time.Minute
+	// cleanupJitter 首轮启动抖动上限：多副本同时启动时把删除错开，不至于同一秒抢同一批行。
+	cleanupJitter = 30 * time.Second
 )
 
 // run 装配并运行进程，返回退出码（defer 在此全部收敛）。
@@ -71,24 +76,7 @@ func run() int {
 	metrics.ServeAdmin(firstNonEmptyStr(cfg.Metrics.Addr, "127.0.0.1:9100"))
 	metrics.RegisterPGPool(infra.PGPoolStats)
 
-	go func() { // 过期数据清理：每 6 小时一轮
-		t := time.NewTicker(6 * time.Hour)
-		defer t.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				// 每轮独立超时：清理卡在慢库上必须能自行退出，否则这个 goroutine 再也回不到 ctx.Done()。
-				cctx, ccancel := context.WithTimeout(ctx, cleanupTimeout)
-				cerr := infra.CleanupExpired(cctx)
-				ccancel()
-				if cerr != nil {
-					log.Error("cleanup expired", "err", cerr)
-				}
-			}
-		}
-	}()
+	startCleanup(ctx, log, infra)
 
 	// ── 模块装配 ──────────────────────────────────────────────
 	mod, err := identity.New(identity.Deps{Config: cfg, Infra: infra, Log: log, Production: production})
@@ -135,6 +123,49 @@ func run() int {
 		return 1
 	}
 	return 0
+}
+
+// startCleanup 后台过期数据清理：抖动后先跑首轮，此后每 cleanupInterval 一轮。
+//
+// 首轮不比 ticker 更早是必要的：进程因扩缩容/发布频繁重启时，纯 ticker 可能永远等不到
+// 第一个 6 小时。多副本同时启动靠抖动错开，删除本身已按 SKIP LOCKED 分批，各自不重叠。
+func startCleanup(ctx context.Context, log *slog.Logger, infra *identity.Infra) {
+	run := func() {
+		// 每轮独立超时：清理卡在慢库上必须能自行退出，否则这个 goroutine 再也回不到 ctx.Done()。
+		cctx, cancel := context.WithTimeout(ctx, cleanupTimeout)
+		st, err := infra.CleanupExpired(cctx)
+		cancel()
+		// 出错时计数仍含已提交的批次，照常上报：卡住的时候最需要看到「删了多少」。
+		metrics.CleanupDeleted("sessions", st.Sessions)
+		metrics.CleanupDeleted("login_audit", st.LoginAudit)
+		switch {
+		case err != nil:
+			log.Error("cleanup expired", "err", err,
+				"deleted_sessions", st.Sessions, "deleted_audit", st.LoginAudit)
+		case st.Sessions+st.LoginAudit > 0:
+			log.Info("cleanup expired",
+				"deleted_sessions", st.Sessions, "deleted_audit", st.LoginAudit)
+		}
+	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Duration(rand.Int64N(int64(cleanupJitter)))):
+		}
+		run()
+		t := time.NewTicker(cleanupInterval)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				run()
+			}
+		}
+	}()
 }
 
 // firstNonEmptyStr 返回第一个非空字符串（配置兜底链）。

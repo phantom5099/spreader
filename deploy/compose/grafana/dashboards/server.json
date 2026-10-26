@@ -268,6 +268,40 @@
           "placement": "bottom"
         }
       }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "过期数据清理（24h 删除行数）",
+      "description": "每 6 小时一轮。恒为 0 而表在涨 = 任务没跑或保留期条件写错。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (table) (increase(server_cleanup_deleted_rows_total[24h]))",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
     }
   ]
 }
