@@ -9,6 +9,7 @@ import (
 )
 
 // OTPVerifier 登录域对验证码校验的窄接口（otp 域实现，cmd/ 注入）。
+// 只消费登录场景的码：其他用途将来若有，另开方法与端点，不复用这条通道。
 type OTPVerifier interface {
 	// Verify 校验并消费验证码；失败返回 *Error（EOtpInvalid）。
 	Verify(ctx context.Context, channel, dest, code string) error
@@ -26,10 +27,24 @@ type SessionIssuer interface {
 	Authenticate(ctx context.Context, bearer string) (*AuthInfo, error)
 }
 
+// 用途由服务端在调用处给定（SendOtp 传 OTPSceneLogin，Verify 校验同一个值），
+// 客户端只提供号码与验证码，无从声明「这个码是干什么用的」。
+//
+// 新增用途时不要给 /v1/auth/otp:send 加用途字段，那等于把边界交回客户端；
+// 正确做法是新增一对"签发 + 消费"端点与对应常量
+type OTPScene string
+
+// 验证码用途取值。
+const (
+	// OTPSceneLogin 登录验证码：由 /v1/auth/otp:send 签发，由 /v1/auth/login 的
+	// phone_otp / email_otp 两种凭据形式消费。
+	OTPSceneLogin OTPScene = "login"
+)
+
 // OTPSender 验证码发送的窄接口（otp 域实现）。
 // 返回本次发送后的冷却秒数；频控/额度/熔断判定在 otp 域内完成。
 type OTPSender interface {
-	Send(ctx context.Context, channel, dest, scene, ip, deviceID string) (cooldownSeconds int64, err error)
+	Send(ctx context.Context, channel, dest string, scene OTPScene, ip, deviceID string) (cooldownSeconds int64, err error)
 }
 
 // Config 服务级行为参数。
@@ -150,7 +165,8 @@ func (s *Service) Login(ctx context.Context, in *LoginInput) (*AuthResult, error
 }
 
 // SendOtp 发送验证码：归一化 → 冷却/额度（otp 域内）→ 触发式人机校验 → 发送。
-func (s *Service) SendOtp(ctx context.Context, channel, destination, nation, scene string, captcha *ChallengeResponse, ip, deviceID string) (int64, error) {
+// 用途固定为登录：本端点只管登录码，客户端无从指定。
+func (s *Service) SendOtp(ctx context.Context, channel, destination, nation string, captcha *ChallengeResponse, ip, deviceID string) (int64, error) {
 	var dest string
 	var err error
 	switch channel {
@@ -168,7 +184,7 @@ func (s *Service) SendOtp(ctx context.Context, channel, destination, nation, sce
 	if _, err := s.captchaGate(ctx, sc, captcha); err != nil {
 		return 0, err
 	}
-	return s.otp.Send(ctx, channel, dest, scene, ip, deviceID)
+	return s.otp.Send(ctx, channel, dest, OTPSceneLogin, ip, deviceID)
 }
 
 // ThirdPartyAuthorize web 流程第一步：签发一次性 state → 平台授权页地址。

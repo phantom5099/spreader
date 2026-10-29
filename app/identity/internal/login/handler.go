@@ -99,7 +99,7 @@ func (h *Handler) SendOtp(c khttp.Context) error {
 	ctx, cancel := context.WithTimeout(c, budgetExternal)
 	defer cancel()
 	cd, err := h.svc.SendOtp(ctx, req.Channel, req.Destination, req.Nation,
-		req.Scene, decodeCaptchaToken(req.CaptchaToken), clientIP(c.Request()), "")
+		decodeCaptchaToken(req.CaptchaToken), clientIP(c.Request()), "")
 	if err != nil {
 		return MapError(err)
 	}

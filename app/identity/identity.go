@@ -79,7 +79,6 @@ func New(d Deps) (*App, error) {
 		PerDevicePerHour: cfg.OTP.PerDevicePerHour,
 		GlobalPerMinute:  cfg.OTP.GlobalPerMinute,
 		Pepper:           config.Env(cfg.OTP.PepperEnv),
-		SceneIsolation:   cfg.OTP.SceneIsolation,
 	}, log)
 
 	providers, mockProvider := buildProviders(cfg, cache, d.Production, log)

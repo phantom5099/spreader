@@ -29,7 +29,6 @@ otp:
   per_device_per_hour: 0
   global_per_minute: 0
   pepper_env: SERVER_OTP_PEPPER     # Secret 注入
-  scene_isolation: [login, reset_password, bind_phone, unbind_phone, change_phone]
   channels:
     login.phone:  { primary: console, fallback: console }
     login.email:  { primary: console, fallback: console }

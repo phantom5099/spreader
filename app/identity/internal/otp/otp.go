@@ -22,9 +22,8 @@ type Config struct {
 	DailyLimit       int64 // 单号码日额度
 	PerIPPerHour     int64
 	PerDevicePerHour int64
-	GlobalPerMinute  int64    // 全局熔断阈值
-	Pepper           string   // HMAC pepper：存哈希不存明文（env 注入）
-	SceneIsolation   []string // 场景白名单：非白名单 scene 直接拒绝（防挑战挪用/键空间污染）
+	GlobalPerMinute  int64  // 全局熔断阈值
+	Pepper           string // HMAC pepper：存哈希不存明文（env 注入）
 }
 
 // Store 状态存储（redis 实现）
@@ -88,7 +87,7 @@ func (s *Service) limitErr(op string, err error) {
 
 // —— 键构造——
 
-// codeKey/attemptsKey 三段各有职责：scene 隔离（登录码不可挪用于重置密码，白名单外直接拒绝）、
+// codeKey/attemptsKey 三段各有职责：scene 隔离（登录码不可挪用于重置密码）、
 // channel 隔离（手机/邮箱的尝试预算互不侵占）、dest 用归一化后的全值（空格/大小写等异形输入落同一键，一次性与频控不可绕过）。
 func codeKey(scene, channel, dest string) string {
 	return fmt.Sprintf("iam:otp:code:%s:%s:%s", scene, channel, dest)
@@ -139,12 +138,15 @@ func ttlUntilMidnight() int64 {
 
 // Send 发送验证码：冷却/日额度/IP/设备/全局熔断 → 生成 → 存哈希 → 主备通道发送 → 设冷却。
 // 频控键全部带 TTL，状态自清理；发送失败不落冷却（可立即重试其他通道/时间）。
-func (s *Service) Send(ctx context.Context, channel, dest, scene, ip, deviceID string) (int64, error) {
+//
+// scene 由调用方（服务端）给定，不接受客户端输入：它决定码落在哪个键、由谁消费，
+// 是隔离边界，不是请求参数（见 login.OTPScene
+func (s *Service) Send(ctx context.Context, channel, dest string, scene login.OTPScene, ip, deviceID string) (int64, error) {
 	if channel != "phone" && channel != "email" {
 		return 0, login.EBadRequest("unknown channel: " + channel)
 	}
-	if !s.sceneAllowed(scene) {
-		return 0, login.EBadRequest("scene not allowed: " + scene)
+	if scene == "" {
+		return 0, login.EBadRequest("missing otp scene")
 	}
 	if left, err := s.store.RemainingTTL(ctx, cooldownKey(dest)); err != nil {
 		s.limitErr("cooldown", err)
@@ -196,11 +198,11 @@ func (s *Service) Send(ctx context.Context, channel, dest, scene, ip, deviceID s
 	// 顺序依赖（第二道防线）：频控读失败已 fail-closed 拒绝发送；SaveCode 先于 router.Send
 	// 再兜一层——即便未来放宽频控失败策略，Redis 故障时也在短信发出前失败。
 	code := genCode(s.cfg.CodeLength)
-	if err := s.store.SaveCode(ctx, codeKey(scene, channel, dest), s.hmacCode(code), s.cfg.TTLSeconds); err != nil {
+	if err := s.store.SaveCode(ctx, codeKey(string(scene), channel, dest), s.hmacCode(code), s.cfg.TTLSeconds); err != nil {
 		return 0, err
 	}
 	if err := s.router.Send(ctx, channel, dest, code); err != nil {
-		_ = s.store.DeleteCode(ctx, codeKey(scene, channel, dest)) // 发送失败不留下可校验的码
+		_ = s.store.DeleteCode(ctx, codeKey(string(scene), channel, dest)) // 发送失败不留下可校验的码
 		return 0, err
 	}
 	if err := s.store.SaveCode(ctx, cooldownKey(dest), "1", s.cfg.CooldownSeconds); err != nil {
@@ -212,23 +214,13 @@ func (s *Service) Send(ctx context.Context, channel, dest, scene, ip, deviceID s
 // maxVerifyAttempts 校验失败尝试上限（与验证码同 TTL）。
 const maxVerifyAttempts = 5
 
-// sceneAllowed 场景白名单（scene 隔离：登录码不能用于重置密码）。
-func (s *Service) sceneAllowed(scene string) bool {
-	if len(s.cfg.SceneIsolation) == 0 {
-		return true
-	}
-	for _, sc := range s.cfg.SceneIsolation {
-		if sc == scene {
-			return true
-		}
-	}
-	return false
-}
-
 // Verify 校验并消费验证码（供 login 域的 OTPVerifier 窄接口调用）。
+// 只认登录场景的键：本方法即登录流程的校验方，场景因此写死在调用点，
+// 不由参数或请求体决定。其他用途要能校验，就得有新端点和新方法。
 // 合并错误码防枚举：错误/过期/尝试过多统一 EOtpInvalid。
 func (s *Service) Verify(ctx context.Context, channel, dest, code string) error {
-	key := codeKey("login", channel, dest)
+	scene := string(login.OTPSceneLogin)
+	key := codeKey(scene, channel, dest)
 	// Lua 原子「比对相等才删除」：并发同码请求只有一个能消费成功。
 	matched, err := s.store.ConsumeIfMatch(ctx, key, s.hmacCode(code))
 	if err != nil {
@@ -237,7 +229,7 @@ func (s *Service) Verify(ctx context.Context, channel, dest, code string) error 
 	if matched {
 		return nil
 	}
-	n, _ := s.store.Incr(ctx, attemptsKey("login", channel, dest), s.cfg.TTLSeconds)
+	n, _ := s.store.Incr(ctx, attemptsKey(scene, channel, dest), s.cfg.TTLSeconds)
 	if n >= maxVerifyAttempts {
 		_ = s.store.DeleteCode(ctx, key) // 尝试过多，作废该验证码
 	}
@@ -245,4 +237,7 @@ func (s *Service) Verify(ctx context.Context, channel, dest, code string) error 
 }
 
 // 满足接口关系（编译期校验）。
-var _ login.OTPVerifier = (*Service)(nil)
+var (
+	_ login.OTPSender   = (*Service)(nil)
+	_ login.OTPVerifier = (*Service)(nil)
+)

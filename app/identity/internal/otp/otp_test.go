@@ -115,7 +115,7 @@ func newTestService() (*Service, *fakeStore, *fakeSender, *fakeSender) {
 func TestSendAndVerify(t *testing.T) {
 	svc, store, primary, _ := newTestService()
 	ctx := context.Background()
-	cd, err := svc.Send(ctx, "phone", "+8613800138000", "login", "1.2.3.4", "dev-1")
+	cd, err := svc.Send(ctx, "phone", "+8613800138000", login.OTPSceneLogin, "1.2.3.4", "dev-1")
 	if err != nil {
 		t.Fatalf("send: %v", err)
 	}
@@ -142,10 +142,10 @@ func TestSendAndVerify(t *testing.T) {
 func TestCooldown(t *testing.T) {
 	svc, _, _, _ := newTestService()
 	ctx := context.Background()
-	if _, err := svc.Send(ctx, "phone", "+8613800138000", "login", "", ""); err != nil {
+	if _, err := svc.Send(ctx, "phone", "+8613800138000", login.OTPSceneLogin, "", ""); err != nil {
 		t.Fatalf("first send: %v", err)
 	}
-	_, err := svc.Send(ctx, "phone", "+8613800138000", "login", "", "")
+	_, err := svc.Send(ctx, "phone", "+8613800138000", login.OTPSceneLogin, "", "")
 	if err == nil {
 		t.Fatal("second send within cooldown must fail")
 	}
@@ -159,7 +159,7 @@ func TestFallbackChannel(t *testing.T) {
 	svc, _, primary, fallback := newTestService()
 	primary.fail = true
 	ctx := context.Background()
-	if _, err := svc.Send(ctx, "phone", "+8613800138000", "login", "", ""); err != nil {
+	if _, err := svc.Send(ctx, "phone", "+8613800138000", login.OTPSceneLogin, "", ""); err != nil {
 		t.Fatalf("fallback send: %v", err)
 	}
 	if len(fallback.sent) != 1 {
@@ -170,7 +170,7 @@ func TestFallbackChannel(t *testing.T) {
 func TestWrongCodeInvalid(t *testing.T) {
 	svc, _, primary, _ := newTestService()
 	ctx := context.Background()
-	_, _ = svc.Send(ctx, "phone", "+8613800138000", "login", "", "")
+	_, _ = svc.Send(ctx, "phone", "+8613800138000", login.OTPSceneLogin, "", "")
 	code := strings.Split(primary.sent[0], "|")[1]
 	wrong := code
 	for wrong == code {
@@ -187,5 +187,27 @@ func TestWrongCodeInvalid(t *testing.T) {
 	// 正确码不受错误尝试影响（未达上限）。
 	if err := svc.Verify(ctx, "phone", "+8613800138000", code); err != nil {
 		t.Fatalf("correct code after wrong attempts: %v", err)
+	}
+}
+
+// 登录码的键带 scene 前缀：这是「一个码跨流程复用」的唯一隔离点。
+// 断言键名而非行为，因为键布局本身就是跨进程契约（重放检测、运维排障都按它查）。
+func TestLoginCodeKeyIsSceneNamespaced(t *testing.T) {
+	svc, store, primary, _ := newTestService()
+	ctx := context.Background()
+	if _, err := svc.Send(ctx, "phone", "+8613800138000", login.OTPSceneLogin, "", ""); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	want := "iam:otp:code:login:phone:+8613800138000"
+	if _, ok := store.kv[want]; !ok {
+		keys := make([]string, 0, len(store.kv))
+		for k := range store.kv {
+			keys = append(keys, k)
+		}
+		t.Fatalf("期望键 %q 不存在，实际键：%v", want, keys)
+	}
+	code := strings.Split(primary.sent[0], "|")[1]
+	if err := svc.Verify(ctx, "phone", "+8613800138000", code); err != nil {
+		t.Fatalf("verify: %v", err)
 	}
 }

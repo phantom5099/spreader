@@ -28,7 +28,6 @@ otp:
   per_device_per_hour: 10
   global_per_minute: 100              # 全局熔断：短信通道被刷时整体降速
   pepper_env: SERVER_OTP_PEPPER     # 存哈希不存明文：HMAC(code, pepper)
-  scene_isolation: [login, reset_password, bind_phone, unbind_phone, change_phone]
   channels:
     login.phone:  { primary: mail139_bridge, fallback: cloud_sms }   # 主=139 免费短信提醒，降级=云短信
     login.email:  { primary: smtp,          fallback: console }

@@ -39,10 +39,12 @@ const (
 )
 
 // SendOtpRequestDTO 发送验证码。destination 为手机号原始输入或邮箱，随 nation 归一。
+// 没有 scene/purpose 字段：客户端只提供号码与验证码，不声明这个码用来干什么。
+// 用途由服务端在调用处给定；登录的四种方式共用 /v1/auth/login，type 只区分凭据形式，
+// 不区分用途，路由本身也读不出用途。
 type SendOtpRequestDTO struct {
 	Destination  string `json:"destination"`
 	Channel      string `json:"channel"`       // phone | email
-	Scene        string `json:"scene"`         // login | reset_password | bind_phone | ...
 	Nation       string `json:"nation"`        // channel=phone 时必填：用户选择的区号种类
 	CaptchaToken string `json:"captcha_token"` // 触发式策略要求时必填
 }
