@@ -93,7 +93,7 @@ func (p *Pool) TokenVersionOf(ctx context.Context, userID string) (int64, error)
 }
 
 // WriteLoginAudit 供事件出口批量写入审计（cmd/ 以适配器注入，不引接口）。
-// identifier_masked 已由发布方脱敏；完整手机号/邮箱不落审计表。
+// identifier_masked 已由 login 编排层脱敏；完整手机号/邮箱不落审计表。
 func (p *Pool) WriteLoginAudit(ctx context.Context, rows []LoginAuditRow) error {
 	batch := &pgxBatch{}
 	for _, r := range rows {

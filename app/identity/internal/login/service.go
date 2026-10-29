@@ -62,7 +62,7 @@ type Deps struct {
 	Strategies   map[string]LoginStrategy
 	Users        UserRepository
 	Sessions     SessionIssuer
-	Events       EventPublisher
+	Events       EventSink
 	OTP          OTPSender
 	Policy       ChallengePolicy
 	Verifier     HumanVerifier
@@ -78,7 +78,7 @@ type Service struct {
 	strategies map[string]LoginStrategy
 	users      UserRepository
 	sessions   SessionIssuer
-	events     EventPublisher
+	events     EventSink
 	otp        OTPSender
 	policy     ChallengePolicy
 	verifier   HumanVerifier

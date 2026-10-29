@@ -35,7 +35,7 @@ type CredentialRepository interface {
 }
 
 // LoginEvent 登录审计事件载荷（login.succeeded / login.failed）。
-// identifier 入库前由发布方脱敏，完整手机号/邮箱不进事件与审计表。
+// identifier 入库前由编排层脱敏（MaskIdentifier），完整手机号/邮箱不进事件与审计表。
 type LoginEvent struct {
 	UserID           string // 失败且账号不存在时为空
 	LoginType        string
@@ -47,8 +47,8 @@ type LoginEvent struct {
 	Captcha          captchaAudit // 人机验证审计
 }
 
-// EventPublisher 事件发布（实现在 platform/eventlog）。发布永不阻塞登录：实现内吞错并记日志。
-type EventPublisher interface {
+// EventSink 事件出口（实现在 platform/eventlog）。写入失败不改变登录结果：实现吞错并记日志。
+type EventSink interface {
 	UserCreated(ctx context.Context, userID string)
 	LoginSucceeded(ctx context.Context, e *LoginEvent)
 	LoginFailed(ctx context.Context, e *LoginEvent)

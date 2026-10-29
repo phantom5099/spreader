@@ -34,61 +34,64 @@ type AuditWriter interface {
 }
 
 var (
-	_ login.EventPublisher = (*Publisher)(nil)
-	_ session.Events       = (*Publisher)(nil)
+	_ login.EventSink = (*Sink)(nil)
+	_ session.Events  = (*Sink)(nil)
 )
 
-// Publisher login.EventPublisher / session.Events 的实现。
-type Publisher struct {
+// Sink login.EventSink / session.Events 的实现：事件的终点。
+// 不承诺投递——没有队列、没有重发、没有 ack，所以不叫 Publisher。
+type Sink struct {
 	log   *slog.Logger
 	audit AuditWriter
 }
 
-// NewPublisher audit 为 nil 时只输出日志与指标（登录编排单测的默认形态）。
-func NewPublisher(log *slog.Logger, audit AuditWriter) *Publisher {
-	return &Publisher{log: log, audit: audit}
+// NewSink audit 为 nil 时只输出日志与指标（登录编排单测的默认形态）。
+func NewSink(log *slog.Logger, audit AuditWriter) *Sink {
+	return &Sink{log: log, audit: audit}
 }
 
-// UserCreated 实现 login.EventPublisher（设计上供通知/信息流/搜索消费，均未上线）。
-func (p *Publisher) UserCreated(_ context.Context, userID string) {
+// UserCreated 实现 login.EventSink（设计上供通知/信息流/搜索消费，均未上线）。
+func (s *Sink) UserCreated(_ context.Context, userID string) {
 	metrics.BusinessEvent("user.created", "")
-	p.log.Info("user.created", "user_id", userID)
+	s.log.Info("user.created", "user_id", userID)
 }
 
-// LoginSucceeded 实现 login.EventPublisher。
-func (p *Publisher) LoginSucceeded(ctx context.Context, e *login.LoginEvent) {
+// LoginSucceeded 实现 login.EventSink。
+func (s *Sink) LoginSucceeded(ctx context.Context, e *login.LoginEvent) {
 	metrics.BusinessEvent("login.succeeded", e.Reason)
-	p.log.Info("login.succeeded",
+	s.log.Info("login.succeeded",
 		"user_id", e.UserID, "login_type", e.LoginType,
 		"identifier_masked", e.IdentifierMasked, "ip", e.IP, "device_id", e.DeviceID)
-	p.writeAudit(ctx, e)
+	s.writeAudit(ctx, e)
 }
 
-// LoginFailed 实现 login.EventPublisher：被锁定/爆破的信号来源。
-func (p *Publisher) LoginFailed(ctx context.Context, e *login.LoginEvent) {
+// LoginFailed 实现 login.EventSink：被锁定/爆破的信号来源。
+func (s *Sink) LoginFailed(ctx context.Context, e *login.LoginEvent) {
 	metrics.BusinessEvent("login.failed", e.Reason)
-	p.log.Info("login.failed",
+	s.log.Info("login.failed",
 		"user_id", e.UserID, "login_type", e.LoginType, "reason", e.Reason,
 		"identifier_masked", e.IdentifierMasked, "ip", e.IP, "device_id", e.DeviceID)
-	p.writeAudit(ctx, e)
+	s.writeAudit(ctx, e)
 }
 
 // SessionRevoked 实现 session.Events（设计上供 realtime 关长连接，未上线）。
-func (p *Publisher) SessionRevoked(_ context.Context, userID, sessionID, familyID, reason string) {
+func (s *Sink) SessionRevoked(_ context.Context, userID, sessionID, familyID, reason string) {
 	metrics.BusinessEvent("session.revoked", reason)
-	p.log.Info("session.revoked",
+	s.log.Info("session.revoked",
 		"user_id", userID, "session_id", sessionID, "family_id", familyID, "reason", reason)
 }
 
 // writeAudit 审计失败不阻断登录，但必须可观测：静默吞错正是上一版丢数据的原因。
 // 用脱离取消信号的有界 ctx：客户端断开不该把已发生的登录事实从审计里抹掉。
-func (p *Publisher) writeAudit(ctx context.Context, e *login.LoginEvent) {
-	if p.audit == nil || e == nil {
+// 这是同步调用（上界 auditWriteTimeout），登录路径会等它返回；换回异步投递才有
+// 旧注释说的「不阻塞」，现在只能说「有界」。
+func (s *Sink) writeAudit(ctx context.Context, e *login.LoginEvent) {
+	if s.audit == nil || e == nil {
 		return
 	}
 	actx, cancel := context.WithTimeout(context.WithoutCancel(ctx), auditWriteTimeout)
 	defer cancel()
-	err := p.audit.WriteLoginAudit(actx, []AuditRow{{
+	err := s.audit.WriteLoginAudit(actx, []AuditRow{{
 		UserID:             e.UserID,
 		LoginType:          e.LoginType,
 		IdentifierMasked:   e.IdentifierMasked,
@@ -102,6 +105,6 @@ func (p *Publisher) writeAudit(ctx context.Context, e *login.LoginEvent) {
 	}})
 	if err != nil {
 		metrics.BusinessEvent("login.audit_write_failed", "")
-		p.log.Error("login audit write", "err", err)
+		s.log.Error("login audit write", "err", err)
 	}
 }

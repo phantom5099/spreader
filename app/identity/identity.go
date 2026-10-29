@@ -63,8 +63,8 @@ func New(d Deps) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	publisher := eventlog.NewPublisher(log, auditWriterAdapter{p: db})
-	issuer := session.NewIssuer(db, cache, db, publisher, session.Config{
+	events := eventlog.NewSink(log, auditWriterAdapter{p: db})
+	issuer := session.NewIssuer(db, cache, db, events, session.Config{
 		ATSecret: jwtSecret,
 		ATTTL:    time.Duration(cfg.JWT.ATTTLSec) * time.Second,
 		RTTTL:    time.Duration(cfg.JWT.RTTTLSec) * time.Second,
@@ -116,7 +116,7 @@ func New(d Deps) (*App, error) {
 		Strategies:   strategies,
 		Users:        db,
 		Sessions:     issuer,
-		Events:       publisher,
+		Events:       events,
 		OTP:          otpSvc,
 		Policy:       policy,
 		Verifier:     verifier,
