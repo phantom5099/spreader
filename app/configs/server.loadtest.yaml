@@ -1,84 +1,23 @@
-# server 进程运行配置（非敏感，*.example.yaml 占位入库）。
-# 一切凭据走 *_env 引用（真实值在部署环境）——仓库零秘密。
-
-database:
-  dsn_env: SERVER_PG_DSN            # 本地 compose：postgres://spreader:spreader@127.0.0.1:15432/spreader?sslmode=disable（经 env 注入）
-
-redis:
-  mode: standalone            # standalone | cluster | sentinel（OTP/会话/挑战状态须多副本共享）
-  addrs: [127.0.0.1:16379]    # 本地 compose 端口；集群环境由部署配置注入全部节点
-  # master_name: mymaster     # 仅 sentinel 模式必填
-  password: ""
-  db: 0                       # cluster 模式仅支持 0
-
-login:
-  disabled_types: []                  # 停用的登录方式（IAM.UNSUPPORTED_LOGIN_TYPE 的"被配置停用"分支）
-
-jwt:
-  secret_env: SERVER_JWT_SECRET     # HS256 签名密钥（≥32B 随机）
-  at_ttl_seconds: 900                 # AT 15min
-  rt_ttl_seconds: 2592000             # RT 30d
+# 压测专用 profile：只写与 server.yaml 的差异，base 指向同目录的基础配置
+# （映射递归合并、标量与列表整体替换，见 platform/config 的 Load）。
+#
+# 独立库不在这里——用环境变量 SERVER_PG_DSN 指向 spreader_loadtest（见 perf/README.md）：
+# 「登录即注册」会灌进海量用户，绝不能打到主库。
+base: server.yaml
 
 otp:
-  ttl_seconds: 300                    # 验证码有效期
-  code_length: 6
-  cooldown_seconds: 60                # 发送冷却
-  daily_limit: 20                     # 单号码日额度（otp_send 压测每迭代唯一 dest，不会触发）
-  per_ip_per_hour: 0                  # 0=关闭：压测全走 127.0.0.1，防刷限额必须放行（生产 profile 保持实值）
-  per_device_per_hour: 0              # 0=关闭：同上
-  global_per_minute: 0                # 0=关闭：全局熔断会让压测 30s 后全部 429
-  pepper_env: SERVER_OTP_PEPPER     # 存哈希不存明文：HMAC(code, pepper)
-  scene_isolation: [login, reset_password, bind_phone, unbind_phone, change_phone]
+  # 压测全部来自 127.0.0.1，防刷限额必须放行（0 = 该检查不生效，见 otp.go 的 >0 判断）
+  per_ip_per_hour: 0
+  per_device_per_hour: 0
+  global_per_minute: 0            # 全局熔断会让阶梯压测 30s 后全部 429
   channels:
-    login.phone:  { primary: console, fallback: console }   # 主=139 免费短信提醒，降级=云短信
-    login.email:  { primary: console,        fallback: console }
-    dev.*:        { primary: console }
-
-password:
-  max_fails: 5                        # 连续失败上限，超过即锁定（只拦密码入口）
-  fail_window_seconds: 900            # 失败计数窗口 15min
-  lock_seconds: 300                   # 锁定 5min
-  pepper_env: SERVER_ARGON_PEPPER   # Argon2id pepper
-
-thirdparty:
-  # provider 由每次登录请求逐次携带（proto: ThirdPartyCredential.provider），不在配置里指定；
-  # 此处只管注册表：mock 的双闸 + 未来真实平台的接入参数。
-  allow_insecure_providers: true      # 本地开发 true；生产环境必须 false（双闸第二道：APP_ENV!=production）
-  mock:
-    appid: mock_appid_fixed           # 固定 mock appid（与真实平台身份永不互撞）
-    openid_pool: []                   # 空=每次授权随机派生 mock_ 前缀身份；非空=池内确定分配（可重复测试）
-    public_base_url: http://127.0.0.1:8000   # mock 授权页对外地址（identity 服务自身）
+    login.phone: { primary: console, fallback: console }   # console：不发真短信
+    login.email: { primary: console, fallback: console }   # console：不发真邮件
 
 captcha:
-  verifier: none                      # none | selfhosted（turnstile/tencent 规模化后实现，未知值启动即失败）
-  challenge_ttl_seconds: 300
-  policy:                             # ChallengePolicy：决定"何时验"，与 verifier 解耦
-    otp_send_per_ip_per_hour: 0       # 0=不触发：压测单一 IP，人机校验门槛必须放行（生产保持实值）
+  policy:
+    otp_send_per_ip_per_hour: 0    # 单一 IP 压测，人机校验门槛必须放行
     otp_send_per_device_per_hour: 0
-    login_fail_per_account: 3
-
-mail:
-  smtp:
-    host: smtp.qq.com                 # 或 smtp.163.com
-    port: 465
-    username_env: SMTP_USERNAME       # 真实邮箱地址走 env，勿入配置
-    password_env: SMTP_AUTH_CODE      # 授权码走 env
-    from: no-reply@example.com
-  mail139:
-    domain: 139.com                   # 目标 = <E.164去掉+号的手机号>@139.com；验证码放邮件标题
-
-sms:
-  cloud_sms:
-    provider: tencent                 # 或 aliyun（暂未实现）
-    secret_id_env: SMS_SECRET_ID
-    secret_key_env: SMS_SECRET_KEY
-    sdk_app_id_env: SMS_SDK_APP_ID
-    sign_name: "【spreader】"          # 需过审
-    template_id_env: SMS_TEMPLATE_ID
-
-server:
-  http_addr: 127.0.0.1:8000           # HTTP 监听地址（flag -http 可覆盖）
-  request_timeout_seconds: 10         # 单请求总预算上界（兜底，缺省 10s）：各路由在 handler 内按依赖收窄，必须大于最宽的路由预算 8s
 
 metrics:
-  addr: 0.0.0.0:9100                # 管理端点（/metrics + /debug/pprof）；Prometheus 容器采集时需 0.0.0.0
+  addr: 0.0.0.0:9100               # 让容器里的 Prometheus 抓得到，压测时与 Grafana 同屏看曲线

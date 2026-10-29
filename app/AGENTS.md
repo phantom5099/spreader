@@ -133,4 +133,4 @@ curl http://127.0.0.1:8000/healthz   # => {"status":"ok"}
 
 - Modules talk through Go interfaces declared by the consumer, never by importing each other's `internal/`.
 - **Single writer per state**: only the owning module may write a given kind of state; other modules read it or submit change requests.
-- Local dependencies (PostgreSQL / Redis / Kafka / MinIO / Elasticsearch) are started with `make compose-up` at the repository root.
+- Local dependencies (PostgreSQL / Redis / Prometheus / Grafana) are started with `make compose-up` at the repository root.

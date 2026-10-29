@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -18,7 +19,7 @@ type Config struct {
 		RequestTimeoutSeconds int64 `yaml:"request_timeout_seconds"`
 	}
 	Metrics struct {
-		Addr string `yaml:"metrics_addr"` // 管理端点（/metrics + pprof）；Prometheus 容器采集时需 0.0.0.0
+		Addr string `yaml:"addr"` // 管理端点（/metrics + pprof）；Prometheus 容器采集时需 0.0.0.0
 	}
 	Login struct {
 		DisabledTypes []string `yaml:"disabled_types"` // 停用的登录方式（phone_otp/email_otp/password/thirdparty）
@@ -47,8 +48,7 @@ type Config struct {
 		PerDevicePerHour int64                   `yaml:"per_device_per_hour"`
 		GlobalPerMinute  int64                   `yaml:"global_per_minute"`
 		PepperEnv        string                  `yaml:"pepper_env"`
-		SceneIsolation   []string                `yaml:"scene_isolation"` // 场景白名单：防挑战挪用/键空间污染
-		Channels         map[string]ChannelRoute `yaml:"channels"`        // login.phone / login.email
+		Channels         map[string]ChannelRoute `yaml:"channels"` // login.phone / login.email
 	}
 	Password struct {
 		MaxFails      int64  `yaml:"max_fails"`
@@ -112,16 +112,69 @@ type PolicyConfig struct {
 }
 
 // Load 读取并解析配置文件。
+//
+// 文件可以用 base 指向同目录（或相对路径）的另一份配置作为底座，自身只写差异：
+// 映射递归合并、标量与列表整体替换。这样环境 profile 不必复制整份配置，
+// 也就不会出现「基础配置新增字段、profile 忘了同步」的静默偏差。
 func Load(path string) (*Config, error) {
-	b, err := os.ReadFile(path)
+	merged, err := loadMap(path, 0)
 	if err != nil {
-		return nil, fmt.Errorf("read config: %w", err)
+		return nil, err
+	}
+	b, err := yaml.Marshal(merged)
+	if err != nil {
+		return nil, fmt.Errorf("marshal config: %w", err)
 	}
 	c := &Config{}
 	if err := yaml.Unmarshal(b, c); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 	return c, nil
+}
+
+// maxBaseDepth base 链的最大层数：够表达「基础 → 环境 → 压测」的叠加，
+// 也能把写成环的 base 变成一条明确的错误，而不是无限递归。
+const maxBaseDepth = 4
+
+// loadMap 把一份配置读成通用映射；声明了 base 时先加载底座，再用本文件覆盖。
+func loadMap(path string, depth int) (map[string]any, error) {
+	if depth > maxBaseDepth {
+		return nil, fmt.Errorf("config base chain too deep at %s (max %d)", path, maxBaseDepth)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read config: %w", err)
+	}
+	var cur map[string]any
+	if err := yaml.Unmarshal(b, &cur); err != nil {
+		return nil, fmt.Errorf("parse config %s: %w", path, err)
+	}
+	base, _ := cur["base"].(string)
+	delete(cur, "base") // base 是加载指令，不是配置项：留给结构体解析会多出一个未知键
+	if base == "" {
+		return cur, nil
+	}
+	merged, err := loadMap(filepath.Join(filepath.Dir(path), base), depth+1)
+	if err != nil {
+		return nil, fmt.Errorf("base %s: %w", base, err)
+	}
+	return mergeMaps(merged, cur), nil
+}
+
+// mergeMaps 把 over 合并进 base（原地修改并返回 base）。
+// 只对映射做递归合并：标量与列表整体替换，否则「把白名单清空」「把限额设为 0」
+// 这类覆盖无法表达——空列表和 0 在合并语义里必须是一次有效的赋值。
+func mergeMaps(base, over map[string]any) map[string]any {
+	for k, v := range over {
+		bm, isBaseMap := base[k].(map[string]any)
+		om, isOverMap := v.(map[string]any)
+		if isBaseMap && isOverMap {
+			base[k] = mergeMaps(bm, om)
+			continue
+		}
+		base[k] = v
+	}
+	return base
 }
 
 // Env 取环境变量（*_env 引用的真实凭据从部署环境读取）。

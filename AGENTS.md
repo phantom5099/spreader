@@ -31,7 +31,7 @@
 | Shape | **Modular monolith**: one backend process, business domains are Go packages; split into more processes only on a measured signal |
 | Backend | Go 1.26.1 + Kratos v3, explicit HTTP routes over plain JSON structs |
 | Frontend | React 19 + Vite + TypeScript + Zustand + React Router (`web/`) |
-| Data and middleware | PostgreSQL / Redis / Kafka (KRaft) / S3-compatible object storage / Elasticsearch |
+| Data and middleware | PostgreSQL / Redis / Prometheus + Grafana (object storage and full-text search are not wired yet) |
 | License | MIT (see `LICENSE`) |
 
 ---
@@ -245,13 +245,16 @@ make fmt           # format
 make test          # run tests
 make init          # one-shot setup: .env + dependencies + tidy
 
-make compose-up    # start local dependencies (PG/Redis/Kafka/MinIO/ES)
+make compose-up    # start local dependencies (PG/Redis/Prometheus/Grafana)
 make compose-down  # stop local dependencies (keep data volumes)
 make compose-clean # stop and drop data volumes
+
+make loadtest-db   # create the load-test database (idempotent)
+make loadtest      # run the process with the load-test profile (separate DB)
 ```
 
-Local dependency ports (`deploy/compose`): PostgreSQL `15432`, Redis `16379`, Kafka `19092`,
-MinIO `19000` (console `19001`), Elasticsearch `19200`.
+Local dependency ports (`deploy/compose`): PostgreSQL `15432`, Redis `16379`,
+Prometheus `19090`, Grafana `13000`.
 
 Environment variable template: `.env.example`. Images contain no config or secrets; everything is injected from the environment.
 

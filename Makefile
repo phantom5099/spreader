@@ -34,11 +34,28 @@ build-server: ## 编译进程入口
 .PHONY: run
 run: ## 本地运行服务（先 make compose-up + make env；凭据取自 .env）
 	@test -f .env && { set -a; . ./.env; set +a; } || echo "提示：无 .env，使用内置开发默认值"
-	export SERVER_PG_DSN="$${SERVER_PG_DSN:-$${DATABASE_DSN:-postgres://spreader:spreader@127.0.0.1:15432/spreader?sslmode=disable}}"
+	export SERVER_PG_DSN="$${SERVER_PG_DSN:-postgres://spreader:spreader@127.0.0.1:15432/spreader?sslmode=disable}"
 	export SERVER_JWT_SECRET="$${SERVER_JWT_SECRET:-dev-only-jwt-secret-32bytes-min}"
 	export SERVER_OTP_PEPPER="$${SERVER_OTP_PEPPER:-dev-only-otp-pepper}"
 	export SERVER_ARGON_PEPPER="$${SERVER_ARGON_PEPPER:-dev-only-argon-pepper}"
 	go run ./app/cmd/server -conf app/configs/server.yaml
+
+.PHONY: loadtest-db
+loadtest-db: ## 建压测独立库 spreader_loadtest（幂等；make loadtest 之前跑一次）
+	@$(COMPOSE_CMD) exec -T postgres psql -U spreader -d spreader -tAc \
+		"SELECT 1 FROM pg_database WHERE datname='spreader_loadtest'" | grep -q 1 \
+		|| { echo "创建 spreader_loadtest"; $(COMPOSE_CMD) exec -T postgres createdb -U spreader spreader_loadtest; }
+
+.PHONY: loadtest
+loadtest: ## 以压测 profile 启动（server.loadtest.yaml；连独立库，先在 perf/ 下跑 k6）
+	@test -f .env && { set -a; . ./.env; set +a; } || echo "提示：无 .env，使用内置开发默认值"
+	# 固定连压测库：.env 里的 SERVER_PG_DSN 指向主库，压测「登录即注册」会把主库灌满。
+	# 要换目标库用 LOADTEST_PG_DSN，而不是复用 SERVER_PG_DSN。
+	export SERVER_PG_DSN="$${LOADTEST_PG_DSN:-postgres://spreader:spreader@127.0.0.1:15432/spreader_loadtest?sslmode=disable}"
+	export SERVER_JWT_SECRET="$${SERVER_JWT_SECRET:-dev-only-jwt-secret-32bytes-min}"
+	export SERVER_OTP_PEPPER="$${SERVER_OTP_PEPPER:-dev-only-otp-pepper}"
+	export SERVER_ARGON_PEPPER="$${SERVER_ARGON_PEPPER:-dev-only-argon-pepper}"
+	go run ./app/cmd/server -conf app/configs/server.loadtest.yaml
 
 .PHONY: test
 test: ## 运行全部测试
@@ -81,13 +98,12 @@ lint-fix: ## 运行 golangci-lint 并自动修复
 # ==================== 本地依赖 ====================
 
 .PHONY: compose-up
-compose-up: ## 启动本地依赖组件（PG / Redis / Kafka / MinIO / ES）
+compose-up: ## 启动本地依赖组件（PG / Redis / Prometheus / Grafana）
 	$(COMPOSE_CMD) up -d
 	@echo "PostgreSQL  127.0.0.1:15432"
 	@echo "Redis       127.0.0.1:16379"
-	@echo "Kafka       127.0.0.1:19092"
-	@echo "MinIO       http://127.0.0.1:19000 （控制台 :19001）"
-	@echo "Elasticsearch http://127.0.0.1:19200"
+	@echo "Prometheus  http://127.0.0.1:19090"
+	@echo "Grafana     http://127.0.0.1:13000 （admin / admin）"
 
 .PHONY: compose-down
 compose-down: ## 停止本地依赖（保留数据卷）

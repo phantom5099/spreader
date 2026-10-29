@@ -1,27 +1,31 @@
 # 性能测试（k6）
 
-k6 脚本目录。环境要求：identity 以 loadtest 配置运行（OTP 走 console、mock 第三方放行）、
-compose 的 PG/Redis/Kafka 已起。发压时打开 Grafana（localhost:13000）同屏看服务端曲线。
+k6 脚本目录。环境要求：`make compose-up` 拉起 PG / Redis / Prometheus / Grafana，
+服务以压测 profile（`app/configs/server.loadtest.yaml`）启动——OTP 走 console、频控放行、
+连独立库。发压时打开 Grafana（localhost:13000）同屏看服务端曲线。
 
 ## 运行
 
 ```bash
-# ① 起 identity（压测 profile，独立库）
-CREATE DATABASE spreader_loadtest;   -- psql 执行一次
-export SERVER_PG_DSN=postgres://spreader:spreader@127.0.0.1:15432/spreader_loadtest?sslmode=disable
-export SERVER_JWT_SECRET=dev-only-jwt-secret-32bytes-min
-export SERVER_OTP_PEPPER=dev-only-otp-pepper
-export SERVER_ARGON_PEPPER=dev-only-argon-pepper
-go run ./app/cmd/server -conf app/configs/server.loadtest.yaml
+# ① 依赖组件 + 独立库（建库幂等，只需跑一次）
+make compose-up
+make loadtest-db
 
-# ② 冒烟/负载（并发量 = VUS，时长 = DURATION，都是你自己的旋钮）
+# ② 起服务（压测 profile：连 spreader_loadtest，不碰主库）
+#    要换目标库用 LOADTEST_PG_DSN，别复用 SERVER_PG_DSN——那是主库
+make loadtest
+
+# ③ 冒烟/负载（并发量 = VUS，时长 = DURATION，都是你自己的旋钮）
 K6_WEB_DASHBOARD=true k6 run -e VUS=10 -e DURATION=30s perf/me.js
 K6_WEB_DASHBOARD=true k6 run -e VUS=20 -e DURATION=1m perf/login_mock.js
 K6_WEB_DASHBOARD=true k6 run -e VUS=20 -e DURATION=30s perf/otp_send.js
 
-# ③ 找崩溃拐点（阶梯加压；本机跑结论偏保守，标注环境）
+# ④ 找崩溃拐点（阶梯加压；本机跑结论偏保守，标注环境）
 K6_WEB_DASHBOARD=true k6 run perf/stress.js
 ```
+
+压测 profile 只写与 `server.yaml` 的差异（`base:` 引用基础配置，映射合并、标量覆盖），
+新增配置项只需改 `server.yaml` 一处，profile 自动继承。
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
