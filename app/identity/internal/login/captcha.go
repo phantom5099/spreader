@@ -92,15 +92,6 @@ type captchaNotSupportedError struct{}
 
 func (captchaNotSupportedError) Error() string { return "captcha challenge not supported" }
 
-// ChallengePolicy 触发式策略：决定何时要求人机验证（场景阈值 + 风险信号输入）。
-// 近期失败数等计数经 ChallengeCounters 由实现自取（避免把读取逻辑散在调用方）。
 type ChallengePolicy interface {
 	Evaluate(ctx context.Context, sc SceneContext) (bool, error)
-}
-
-// ChallengeCounters 触发式策略的只读计数（redis 实现）。
-type ChallengeCounters interface {
-	OTPSentFromIP(ctx context.Context, ip string) (int64, error)
-	OTPSentFromDevice(ctx context.Context, device string) (int64, error)
-	PasswordFailsOf(ctx context.Context, identifier string) (int64, error)
 }

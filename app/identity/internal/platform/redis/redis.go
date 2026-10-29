@@ -108,12 +108,14 @@ func (c *Client) Ping(ctx context.Context) error { return c.rdb.Ping(ctx).Err() 
 func (c *Client) Close() error { return c.rdb.Close() }
 
 // 编译期校验：接口由消费域声明，本包（或其包装类型）实现。
+//
+// 这里不含 platform/captcha.Counters：captcha 包已 import 本包（Selfhosted 持 *Client），
+// 反向断言会构成 import cycle。该契约由 captcha.NewPolicy 的实参检查兜住。
 var (
 	_ otp.Store               = (*OTPStore)(nil)
 	_ login.ThirdPartyStore   = (*ThirdPartyStore)(nil)
 	_ login.PasswordFailGuard = (*Client)(nil)
 	_ session.RevocationStore = (*Client)(nil)
-	_ login.ChallengeCounters = (*Client)(nil)
 )
 
 // —— 通用原语 ——
@@ -315,19 +317,19 @@ func (c *Client) GetUsedRT(ctx context.Context, rtHash string) (string, error) {
 	return v, err
 }
 
-// ─── Client：实现 login.ChallengeCounters（触发式策略只读计数）——
+// ─── Client：实现 platform/captcha.Counters（触发式策略只读计数）——
 
-// OTPSentFromIP 实现 login.ChallengeCounters。
+// OTPSentFromIP 实现 platform/captcha.Counters。
 func (c *Client) OTPSentFromIP(ctx context.Context, ip string) (int64, error) {
 	return c.getCount(ctx, "iam:otp:send:ip:"+ip)
 }
 
-// OTPSentFromDevice 实现 login.ChallengeCounters。
+// OTPSentFromDevice 实现 platform/captcha.Counters。
 func (c *Client) OTPSentFromDevice(ctx context.Context, device string) (int64, error) {
 	return c.getCount(ctx, "iam:otp:send:device:"+device)
 }
 
-// PasswordFailsOf 实现 login.ChallengeCounters。
+// PasswordFailsOf 实现 platform/captcha.Counters。
 func (c *Client) PasswordFailsOf(ctx context.Context, identifier string) (int64, error) {
 	return c.getCount(ctx, "iam:pwd:fail:"+identifier)
 }

@@ -111,9 +111,17 @@ func failResult(reason login.CaptchaFailReason) *login.ChallengeResult {
 	return &login.ChallengeResult{Passed: false, FailReason: reason, Retryable: retryable}
 }
 
+// Counters 触发式策略所需的只读风控计数，是 Policy 唯一的外部数据依赖。
+// 接口归调用者：由本包声明，redis.Client 隐式满足（方法集够即可，无需认识本包）。
+type Counters interface {
+	OTPSentFromIP(ctx context.Context, ip string) (int64, error)
+	OTPSentFromDevice(ctx context.Context, device string) (int64, error)
+	PasswordFailsOf(ctx context.Context, identifier string) (int64, error)
+}
+
 // Policy 触发式策略：命中任一阈值即要求挑战（阈值 0 = 该维度不触发）。
 type Policy struct {
-	counters login.ChallengeCounters
+	counters Counters
 	log      *slog.Logger
 	cfg      PolicyCfg
 }
@@ -126,7 +134,7 @@ type PolicyCfg struct {
 }
 
 // NewPolicy 构建。
-func NewPolicy(cfg PolicyCfg, counters login.ChallengeCounters, log *slog.Logger) *Policy {
+func NewPolicy(cfg PolicyCfg, counters Counters, log *slog.Logger) *Policy {
 	return &Policy{cfg: cfg, counters: counters, log: log}
 }
 
