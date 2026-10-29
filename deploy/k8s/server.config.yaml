@@ -1,0 +1,84 @@
+# server 进程运行配置（k8s 变体）。
+# 与 server.loadtest.yaml 的差异：监听 0.0.0.0（pod 内必须）、
+# 依赖组件走 host.docker.internal（compose 里的 PG/Redis）。
+# 敏感项（DSN/JWT/pepper）不在本文件，经 Secret 注入环境变量（见 20-secret.yaml）。
+
+database:
+  dsn_env: SERVER_PG_DSN            # Secret 注入；compose PG 经 host.docker.internal 暴露
+
+redis:
+  mode: standalone
+  addrs: [host.docker.internal:16379]
+  password: ""
+  db: 0
+
+login:
+  disabled_types: []
+
+jwt:
+  secret_env: SERVER_JWT_SECRET     # Secret 注入
+  at_ttl_seconds: 900
+  rt_ttl_seconds: 2592000
+
+otp:
+  ttl_seconds: 300
+  code_length: 6
+  cooldown_seconds: 60
+  daily_limit: 20
+  per_ip_per_hour: 0                  # 压测 profile：防刷限额放开（真实 X-Forwarded-For 场景另议）
+  per_device_per_hour: 0
+  global_per_minute: 0
+  pepper_env: SERVER_OTP_PEPPER     # Secret 注入
+  channels:
+    login.phone:  { primary: console, fallback: console }
+    login.email:  { primary: console, fallback: console }
+    dev.*:        { primary: console }
+
+password:
+  max_fails: 5
+  fail_window_seconds: 900
+  lock_seconds: 300
+  pepper_env: SERVER_ARGON_PEPPER   # Secret 注入
+
+thirdparty:
+  allow_insecure_providers: true      # mock 双闸第二道：pod 内 APP_ENV!=production
+  mock:
+    appid: mock_appid_fixed
+    openid_pool: []
+    # 授权页回跳地址：kind 后端不映射 NodePort，宿主机 k6 经 port-forward(18000) 访问
+    public_base_url: http://127.0.0.1:18000
+
+captcha:
+  verifier: none
+  challenge_ttl_seconds: 300
+  policy:
+    otp_send_per_ip_per_hour: 0
+    otp_send_per_device_per_hour: 0
+    login_fail_per_account: 3
+
+mail:
+  smtp:
+    host: smtp.qq.com
+    port: 465
+    username_env: SMTP_USERNAME
+    password_env: SMTP_AUTH_CODE
+    from: no-reply@example.com
+  mail139:
+    domain: 139.com
+
+sms:
+  cloud_sms:
+    provider: tencent
+    secret_id_env: SMS_SECRET_ID
+    secret_key_env: SMS_SECRET_KEY
+    sdk_app_id_env: SMS_SDK_APP_ID
+    sign_name: "【spreader】"
+    template_id_env: SMS_TEMPLATE_ID
+
+server:
+  # pod 内必须监听 0.0.0.0：127.0.0.1 会让 Service 转发全部失败
+  http_addr: 0.0.0.0:8000
+  request_timeout_seconds: 10         # 单请求总预算上界（兜底，缺省 10s）：各路由在 handler 内按依赖收窄，必须大于最宽的路由预算 8s
+
+metrics:
+  addr: 0.0.0.0:9100                  # Prometheus 经 metrics NodePort(30100) 采集

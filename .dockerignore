@@ -30,3 +30,7 @@ coverage.html
 tmp/
 .tmp/
 *.log
+
+# 压测脚本与本地 k8s 部署清单（不进运行镜像）
+perf/
+deploy/k8s/

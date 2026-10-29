@@ -57,3 +57,5 @@ tmp/
 .tmp/
 *.log
 !deploy/**/*.log.example
+lint_report.txt
+lint2.txt

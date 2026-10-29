@@ -1,0 +1,83 @@
+# server 进程运行配置（非敏感，*.example.yaml 占位入库）。
+# 一切凭据走 *_env 引用（真实值在部署环境）——仓库零秘密。
+
+database:
+  dsn_env: SERVER_PG_DSN            # 本地 compose：postgres://spreader:spreader@127.0.0.1:15432/spreader?sslmode=disable（经 env 注入）
+
+redis:
+  mode: standalone            # standalone | cluster | sentinel（OTP/会话/挑战状态须多副本共享）
+  addrs: [127.0.0.1:16379]    # 本地 compose 端口；集群环境由部署配置注入全部节点
+  # master_name: mymaster     # 仅 sentinel 模式必填
+  password: ""
+  db: 0                       # cluster 模式仅支持 0
+
+login:
+  disabled_types: []                  # 停用的登录方式（IAM.UNSUPPORTED_LOGIN_TYPE 的"被配置停用"分支）
+
+jwt:
+  secret_env: SERVER_JWT_SECRET     # HS256 签名密钥（≥32B 随机）
+  at_ttl_seconds: 900                 # AT 15min
+  rt_ttl_seconds: 2592000             # RT 30d
+
+otp:
+  ttl_seconds: 300                    # 验证码有效期
+  code_length: 6
+  cooldown_seconds: 60                # 发送冷却
+  daily_limit: 20                     # 单号码日额度
+  per_ip_per_hour: 10
+  per_device_per_hour: 10
+  global_per_minute: 100              # 全局熔断：短信通道被刷时整体降速
+  pepper_env: SERVER_OTP_PEPPER     # 存哈希不存明文：HMAC(code, pepper)
+  channels:
+    login.phone:  { primary: mail139_bridge, fallback: cloud_sms }   # 主=139 免费短信提醒，降级=云短信
+    login.email:  { primary: smtp,          fallback: console }
+    dev.*:        { primary: console }
+
+password:
+  max_fails: 5                        # 连续失败上限，超过即锁定（只拦密码入口）
+  fail_window_seconds: 900            # 失败计数窗口 15min
+  lock_seconds: 300                   # 锁定 5min
+  pepper_env: SERVER_ARGON_PEPPER   # Argon2id pepper
+
+thirdparty:
+  # provider 由每次登录请求逐次携带（proto: ThirdPartyCredential.provider），不在配置里指定；
+  # 此处只管注册表：mock 的双闸 + 未来真实平台的接入参数。
+  allow_insecure_providers: true      # 本地开发 true；生产环境必须 false（双闸第二道：APP_ENV!=production）
+  mock:
+    appid: mock_appid_fixed           # 固定 mock appid（与真实平台身份永不互撞）
+    openid_pool: []                   # 空=每次授权随机派生 mock_ 前缀身份；非空=池内确定分配（可重复测试）
+    public_base_url: http://127.0.0.1:8000   # mock 授权页对外地址（identity 服务自身）
+
+captcha:
+  verifier: none                      # none | selfhosted（turnstile/tencent 规模化后实现，未知值启动即失败）
+  challenge_ttl_seconds: 300
+  policy:                             # ChallengePolicy：决定"何时验"，与 verifier 解耦
+    otp_send_per_ip_per_hour: 20      # 超限后 otp:send 也需人机校验（0=不触发）
+    otp_send_per_device_per_hour: 20
+    login_fail_per_account: 3
+
+mail:
+  smtp:
+    host: smtp.qq.com                 # 或 smtp.163.com
+    port: 465
+    username_env: SMTP_USERNAME       # 真实邮箱地址走 env，勿入配置
+    password_env: SMTP_AUTH_CODE      # 授权码走 env
+    from: no-reply@example.com
+  mail139:
+    domain: 139.com                   # 目标 = <E.164去掉+号的手机号>@139.com；验证码放邮件标题
+
+sms:
+  cloud_sms:
+    provider: tencent                 # 或 aliyun（暂未实现）
+    secret_id_env: SMS_SECRET_ID
+    secret_key_env: SMS_SECRET_KEY
+    sdk_app_id_env: SMS_SDK_APP_ID
+    sign_name: "【spreader】"          # 需过审
+    template_id_env: SMS_TEMPLATE_ID
+
+server:
+  http_addr: 127.0.0.1:8000           # HTTP 监听地址（flag -http 可覆盖）
+  request_timeout_seconds: 10         # 单请求总预算上界（兜底，缺省 10s）：各路由在 handler 内按依赖收窄，必须大于最宽的路由预算 8s
+
+metrics:
+  addr: 127.0.0.1:9100                # 管理端点（/metrics + /debug/pprof）；Prometheus 容器采集时需 0.0.0.0
