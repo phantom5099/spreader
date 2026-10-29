@@ -195,7 +195,12 @@ Regression re-runs **only the relevant** cases (see §6.3); note also that the "
 
 ### 6.2 Commands for this project
 
-- Backend: `make test` (`go test ./...`), `make test-race` (used by CI), `make cover`.
+- Backend, full gate: `make check` — the same sequence CI runs (build → vet → lint → test `-race`).
+- Backend, narrow: `go test ./app/<module>/...` for the package you touched. Do not reach for the full suite (§6.3).
+- Package scope is always `./app/...`, never `./...`: `./...` also picks up a third-party Go package inside
+  `web/node_modules`, which exists only after `npm install`, so the scanned set depends on the machine.
+- `-race` needs `CGO_ENABLED=1` plus a C toolchain. Where it cannot run locally, leave it to CI — do not drop the flag,
+  or the local run stops being a faithful copy of CI.
 - Frontend: see `web/AGENTS.md`.
 
 ### 6.3 Running the right amount
@@ -239,11 +244,11 @@ Tests target code behaviour (input → output / side effects), not filesystem st
 ```bash
 # ---- backend ----
 make help          # list all targets
-make build         # build the binary
-make lint          # golangci-lint
-make fmt           # format
-make test          # run tests
-make init          # one-shot setup: .env + dependencies + tidy
+make init          # one-shot setup: .env + dependencies
+make run           # run the server with app/configs/server.yaml
+make check         # everything CI checks: build -> vet -> lint -> test -race
+make fmt           # format (gofmt + goimports)
+make lint-fix      # golangci-lint with --fix
 
 make compose-up    # start local dependencies (PG/Redis/Prometheus/Grafana)
 make compose-down  # stop local dependencies (keep data volumes)

@@ -117,11 +117,12 @@ cmd/<module>/main.go                       <- wiring point: the only place impor
 
 ```bash
 # repository-wide (root Makefile)
-make build         # build the binary
-make test          # go test ./...
-make test-race     # go test -race ./...   (this is what CI runs)
-make lint
-make fmt
+make check         # build -> vet -> lint -> test -race, the same sequence CI runs
+make fmt           # gofmt + goimports
+make lint-fix      # golangci-lint --fix
+
+# single package (the usual case; scope is ./app/..., never ./...)
+go test ./app/identity/internal/login/...
 
 # build and start the process
 go build -o bin/server ./app/cmd/server

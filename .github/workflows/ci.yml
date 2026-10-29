@@ -28,7 +28,7 @@ jobs:
       - uses: golangci/golangci-lint-action@v8
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
-          args: --timeout=5m
+          args: --timeout=5m ./app/...
 
   test:
     name: build / test
@@ -43,14 +43,16 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      # 包范围一律 ./app/...：./... 会扫进 web/node_modules 里的第三方 Go 包
+      # （该目录只有 npm install 之后才存在，扫描结果因此取决于本机状态）
       - name: Build
-        run: go build ./...
+        run: go build ./app/...
 
       - name: Vet
-        run: go vet ./...
+        run: go vet ./app/...
 
       - name: Test
-        run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+        run: go test -race -coverprofile=coverage.txt -covermode=atomic ./app/...
 
       - name: Upload coverage
         if: always()
