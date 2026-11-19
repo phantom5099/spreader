@@ -1,0 +1,16 @@
+# kustomize 入口：kubectl apply -k deploy/k8s
+# ConfigMap 由 server.config.yaml 自动生成（带内容哈希后缀，改动即触发滚动更新）。
+namespace: spreader
+
+resources:
+  - 00-namespace.yaml
+  - 20-secret.yaml
+  - 30-deployment.yaml
+  - 40-service.yaml
+  - 50-hpa.yaml
+
+configMapGenerator:
+  - name: server-config
+    files:
+      # 键名=server.yaml（容器内 -conf 路径），源文件 server.config.yaml
+      - server.yaml=server.config.yaml

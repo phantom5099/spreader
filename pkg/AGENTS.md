@@ -1,18 +1,20 @@
-# AGENTS.md — pkg/ (cross-service shared libraries) working agreement
+# AGENTS.md — pkg/（跨服务共享库）工作约定
 
-> This directory holds code reused by several services (config, logging, errors, IDs, ...).
-> When working on files inside it, **this file's rules take precedence over the root `AGENTS.md`**.
+> 本目录存放被多个服务复用的代码（配置、日志、错误、ID……）。
+> 改动本目录下的文件时，**本文件的规则优先于根 `AGENTS.md`**。
 
-## Go code conventions
+## Go 代码约定
 
-Shared with `app/`; see the "Go code conventions" section of `app/AGENTS.md`.
-Not copied here, so the two cannot drift apart.
+与 `app/` 共用；见 `app/AGENTS.md` 的「Go 代码约定」一节。
+此处不复制，两份才不会各自漂移。
 
-## Constraints specific to this directory
+## 本目录特有的约束
 
-- **Widest blast radius**: any change here affects every service that imports it; confirm the reference scope before changing anything.
-- **Keep the API stable**: be careful with changes to exported APIs; for a genuinely breaking change, state the blast radius and the migration path first.
-- **No business logic**: only business-agnostic capabilities; business logic belongs in each service's `internal/`.
-- **No heavy dependencies**: every service imports this directory, so confirm a new dependency does not significantly widen the dependency surface.
-- **No reverse dependency**: shared libraries must not import anything under `app/`; the dependency direction is one-way.
-- **Export concrete types, not interfaces**: the abstractions a caller needs are **declared by the caller** (interfaces belong to the user; see "Dependency inversion" in `app/AGENTS.md`). Define an interface here only when this directory genuinely has multiple implementations internally.
+- **影响面最广**：这里任何改动都会影响所有 import 它的服务；动手前先确认引用范围。
+- **保持 API 稳定**：改导出 API 要谨慎；确实是破坏性变更时，先说明影响面与迁移路径。
+- **不放业务逻辑**：只放与业务无关的能力；业务逻辑属于各服务的 `internal/`。
+- **不引入重依赖**：每个服务都会 import 这里，新增依赖前确认它不会显著扩大依赖面。
+- **不反向依赖**：共享库不得 import `app/` 下的任何东西；依赖方向是单向的。
+- **导出具体类型，不导出接口**：调用方需要的抽象**由调用方声明**（接口归使用者，
+  见 `app/AGENTS.md` 的「依赖倒置：抽象归调用者」）。只有本目录内部确实存在多个实现时，
+  才在这里定义接口。

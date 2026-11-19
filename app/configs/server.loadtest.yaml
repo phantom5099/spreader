@@ -1,0 +1,23 @@
+# 压测专用 profile：只写与 server.yaml 的差异，base 指向同目录的基础配置
+# （映射递归合并、标量与列表整体替换，见 platform/config 的 Load）。
+#
+# 独立库不在这里——用环境变量 SERVER_PG_DSN 指向 spreader_loadtest（见 perf/README.md）：
+# 「登录即注册」会灌进海量用户，绝不能打到主库。
+base: server.yaml
+
+otp:
+  # 压测全部来自 127.0.0.1，防刷限额必须放行（0 = 该检查不生效，见 otp.go 的 >0 判断）
+  per_ip_per_hour: 0
+  per_device_per_hour: 0
+  global_per_minute: 0            # 全局熔断会让阶梯压测 30s 后全部 429
+  channels:
+    login.phone: { primary: console, fallback: console }   # console：不发真短信
+    login.email: { primary: console, fallback: console }   # console：不发真邮件
+
+captcha:
+  policy:
+    otp_send_per_ip_per_hour: 0    # 单一 IP 压测，人机校验门槛必须放行
+    otp_send_per_device_per_hour: 0
+
+metrics:
+  addr: 0.0.0.0:9100               # 让容器里的 Prometheus 抓得到，压测时与 Grafana 同屏看曲线

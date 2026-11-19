@@ -1,0 +1,24 @@
+# HPA：按 CPU 自动扩缩（1→4 副本）。
+# ⚠️ 依赖 metrics-server：Docker Desktop k8s 默认没装，安装见 README 第 0 步。
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: server
+  namespace: spreader
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: server
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60      # CPU 均值超 60% 即扩容
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120 # 缩容冷却 2min，避免压测结束后立刻缩没

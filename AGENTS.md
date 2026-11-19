@@ -1,290 +1,311 @@
-# AGENTS.md — Working agreement for the spreader project (for AI coding agents)
+# AGENTS.md — spreader 项目工作约定（面向 AI 编码代理）
 
-> This file is the **first entry point** for AI coding agents working in this repository.
-> Read it before touching code and use it to locate the target code directly —
-> do **not** fall back on repo-wide fuzzy search or on reading comments line by line.
+> 本文件是 AI 编码代理进入本仓库的**第一入口**。
+> 动代码前先读它，并据此直接定位目标代码——**不要**退化成全仓库模糊搜索或逐行读注释。
 >
-> **This file is the single source of truth for AI instructions.** Do not scatter these rules
-> into tool-specific files such as `CLAUDE.md` or `.cursorrules`; change them here.
+
+> **优先级**：对话中用户的明确指令 > 距被改文件最近的 `AGENTS.md` > 本文件。
+> 与 `README.md` 的分工：`README.md` 给人看，本文件给代理看。
 >
-> **Precedence**: explicit user instruction in the conversation > the `AGENTS.md` nearest to the
-> file being changed > this file. Division of labour with `README.md`: `README.md` is for humans,
-> this file is for agents.
+> **以配置为准，不要抄清单**：命令、lint 规则、版本、CI 步骤的权威来源是 `Makefile`、
+> `.golangci.yml`、`.github/workflows/` 与 `package.json`。本文件不复制这些清单——
+> 复制必然过期。需要细节时去读权威文件，不要依赖本文件对它们的记忆。
 >
-> **Trust configuration over copied lists**: commands, lint rules, versions and CI steps are
-> authoritative in `Makefile`, `.golangci.yml`, `buf.yaml`, `.github/workflows/` and `package.json`.
-> This file does not duplicate those lists — copies go stale. Read the authoritative files when you
-> need details; do not rely on this file's memory of them.
->
-> **Multiple AGENTS.md files apply by proximity**: the per-directory files are `web/AGENTS.md`
-> (frontend), `app/AGENTS.md` (Go services) and `pkg/AGENTS.md` (Go shared libraries). When working
-> on a file inside one of those directories, **the nearest file wins**; this file covers
-> repository-level rules only and does not repeat language-level details.
+> **多份 AGENTS.md 按就近原则生效**：目录级文件有 `web/AGENTS.md`（前端）、
+> `app/AGENTS.md`（Go 后端）、`app/identity/AGENTS.md`（身份模块）与 `pkg/AGENTS.md`
+> （Go 共享库）。改动某个目录内的文件时，**就近的那份优先**；本文件只覆盖仓库级规则，
+> 不重复语言级细节。
 
 ---
 
-## 0. Project at a glance
+## 0. 项目速览
 
-| Item | Detail |
+| 项 | 说明 |
 | --- | --- |
-| Project | **spreader** — open-source social media platform (publishing / feed / interactions / DMs / relations / search) |
-| Shape | Server-side microservices plus a web frontend |
-| Backend | Go 1.26.1 + Kratos v3, **one set of proto generating both HTTP and gRPC** |
-| Frontend | React 19 + Vite + TypeScript + Zustand + React Router (`web/`) |
-| Data and middleware | PostgreSQL / Redis / Kafka (KRaft) / S3-compatible object storage / Elasticsearch |
-| License | MIT (see `LICENSE`) |
+| 项目 | **spreader** — 开源社交媒体平台（发布 / 信息流 / 互动 / 私信 / 关系 / 搜索） |
+| 形态 | **模块化单体**：一个后端进程，业务域是 Go 包；只在有实测信号时才拆分进程 |
+| 后端 | Go 1.26.1 + Kratos v3，明文 JSON 结构体 + 显式 HTTP 路由 |
+| 前端 | React 19 + Vite + TypeScript + Zustand + React Router（`web/`） |
+| 数据与中间件 | PostgreSQL / Redis / Prometheus + Grafana（对象存储与全文检索尚未接入） |
+| 许可证 | MIT（见 `LICENSE`） |
 
 ---
 
-## 1. Overview
+## 1. 概述
 
-spreader is a social media platform covering the full chain: publishing posts, consuming a feed,
-likes/comments/reposts, follows and blocks, direct messages and notifications, search and topics,
-content moderation and enforcement. The design goal is a horizontally scalable microservice
-architecture: only REST and WebSocket are exposed externally, services talk to each other over gRPC
-contracts only, and cross-service state advances through domain events.
+spreader 是一个覆盖完整链路的社交媒体平台：发布内容、消费信息流、点赞/评论/转发、
+关注与拉黑、私信与通知、搜索与话题、内容审核与处置。它按**模块化单体**构建：一个后端
+进程同时承载 HTTP、异步任务与定时任务；业务域之间靠 Go 包隔离，而不是靠网络跳数。
+只有当出现实测信号（长连接耗尽内存、转码拖累请求延迟、重启导致连接断开）时才拆出
+进程——而业务域**永远**不按进程拆分。
 
-Product requirements live in the PRD; architecture and technology choices live in the architecture
-design document (location and scope of validity: §9).
+产品需求在 PRD 里，架构与技术选型在架构设计文档里（位置与有效范围：§9）。
 
 ---
 
-## 2. Repository structure (navigation map)
+## 2. 仓库结构（导航地图）
 
-Single-module repository (one `go.mod`, module path `github.com/phantom5099/spreader`). Each service
-is a directory under `app/` — it is **not** a separate module.
+单模块仓库（一个 `go.mod`，module 路径 `github.com/phantom5099/spreader`）。每个模块
+都是 `app/` 下的一个目录——它**不是**独立模块，也**不是**独立进程。
+
+**目录规则：目录跟着代码走，绝不预置。** 只有当第一行业务代码要写的时候，才创建
+`app/<module>/`。空脚手架目录会误导架构认知，而且本来也不会被 git 跟踪。
 
 ```
 .
-├── api/                        # the only source of external contracts (proto); generated output sits beside the proto
-│   └── <domain>/v1/*.proto     # naming: api/<domain>/<version>, e.g. api/content/v1
-├── app/                        # the microservices
-│   └── <service>/
-│       ├── cmd/<service>/      # process entry point: wiring and lifecycle only
-│       ├── configs/            # runtime config for this service (no secrets)
-│       └── internal/
-│           ├── <domain>/       # one package per business resource
-│           └── platform/       # cross-domain facilities: config loading, DB, cache, MQ, and repository implementations
-├── pkg/                        # libraries shared across services (config, logging, errors, IDs)
+├── app/
+│   ├── cmd/server/main.go      # 进程入口：配置、基础设施、模块装配、生命周期
+│   ├── configs/                # 本进程的运行配置（不含密钥）
+│   ├── platform/               # 进程级设施，不认识任何领域类型
+│   │   ├── config/             # 配置加载
+│   │   ├── metrics/            # 按路由的 RED 指标、/metrics 与 pprof 管理端口
+│   │   └── httpx/              # panic 恢复过滤器、problem+json 编码器
+│   └── <module>/               # 每个业务模块一个包
+│       ├── <module>.go         # 唯一公开面：New(deps) + Register(routes)
+│       ├── infra.go            # 可选：模块自持的连接
+│       └── internal/           # 从 cmd/ 不可达——编译器强制
+│           ├── <domain>/       # 每个业务资源一个包
+│           └── platform/       # 适配器：DB、缓存、外部调用
+├── pkg/                        # 可复用基础设施库（目前为空；不要预先创建内容）
 ├── deploy/
-│   ├── compose/                # local dependency orchestration (dev)
-│   └── k8s/                    # Kubernetes manifests (prod)
-├── build/docker/Dockerfile     # image build template
-├── web/                        # frontend (standalone Vite project with its own package.json)
-├── .github/workflows/          # CI: ci.yml (backend) / web-ci.yml (frontend)
-├── Makefile                    # backend development command entry point
-└── buf.yaml / buf.gen.yaml     # proto lint and generation config
+│   ├── compose/                # 本地依赖编排（开发）
+│   └── k8s/                    # Kubernetes 清单（生产）
+├── Dockerfile                  # 镜像构建（CGO_ENABLED=0，静态链接）
+├── web/                        # 前端（独立 Vite 工程，自带 package.json）
+├── .github/workflows/          # CI：ci.yml（后端）/ web-ci.yml（前端）
+└── Makefile                    # 后端开发命令入口
 ```
 
-Per-service structure, domain package rules and the responsibility of each service: see `app/AGENTS.md`.
+各模块内部结构、领域包规则与每个模块的职责：见 `app/AGENTS.md`。
 
 ---
 
-## 3. Fast lookup (I want to change X — where does it go?)
+## 3. 快速定位（我要改 X —— 它该放哪？）
 
-| What you want to do | Go here |
+| 你想做什么 | 去哪里 |
 | --- | --- |
-| Change/add an external endpoint or an internal RPC | `api/<domain>/v1/*.proto` (must run `make gen` afterwards) |
-| Change a business capability (model / use case / repository interface) | `app/<service>/internal/<domain>/` |
-| Change the implementation of an external endpoint (proto ↔ domain object) | `app/<service>/internal/<domain>/handler.go` |
-| Change storage / cache / MQ / external-call implementations | `app/<service>/internal/platform/<subpackage>/` |
-| Change config fields or config files | `app/<service>/configs/` |
-| Change process startup logic | `app/<service>/cmd/<service>/main.go` |
-| Change a cross-service shared library | `pkg/` |
-| Change a frontend page | `web/src/pages/` |
-| Change a frontend component | `web/src/components/<module>/` (directory name matches the module) |
-| Change frontend data access | `web/src/mocks/api.ts` (the only data entry point; details in `web/AGENTS.md`) |
-| Change frontend type definitions | `web/src/types/` |
-| Change frontend global state | `web/src/stores/` (Zustand) |
-| Change frontend design tokens / theme | `web/src/styles/` |
-| Change the build, images or CI | `Makefile`, `build/docker/Dockerfile`, `deploy/`, `.github/workflows/` |
+| 增改对外端点 | `app/<module>/<module>.go` 里的路由 + `internal/<domain>/handler.go` 里的方法 |
+| 改请求/响应体 | `app/<module>/internal/<domain>/dto.go` |
+| 改业务能力（模型 / 用例 / 仓储接口） | `app/<module>/internal/<domain>/` |
+| 改端点实现（DTO ↔ 领域对象） | `app/<module>/internal/<domain>/handler.go` |
+| 改存储 / 缓存 / 外部调用实现 | `app/<module>/internal/platform/<子包>/` |
+| 改配置字段或配置文件 | `app/platform/config/` + `app/configs/` |
+| 改进程启动逻辑 | `app/cmd/server/main.go` |
+| 改可复用基础设施库 | `pkg/` |
+| 改前端页面 | `web/src/pages/` |
+| 改前端组件 | `web/src/components/<module>/`（目录名与模块对应） |
+| 改前端数据访问 | `web/src/mocks/api.ts`（唯一数据入口；细节见 `web/AGENTS.md`） |
+| 改前端类型定义 | `web/src/types/` |
+| 改前端全局状态 | `web/src/stores/`（Zustand） |
+| 改前端设计令牌 / 主题 | `web/src/styles/` |
+| 改构建、镜像或 CI | `Makefile`、`Dockerfile`、`deploy/`、`.github/workflows/` |
 
 ---
 
-## 4. Development principles (hard requirements)
+## 4. 开发原则（硬性要求）
 
-### 4.1 Comments: as few as possible
+### 4.1 注释：越少越好
 
-- **A comment block is at most 3 lines.** Anything longer must be split or cut down.
-- Comments explain **why** (non-obvious trade-offs, traps, constraints) and **never restate what the code does**.
-- No large block comments, no comments used as design documents, no line-by-line commentary.
-- Exported identifiers keep the doc comments `revive` requires — also within 3 lines.
+- **一个注释块最多 3 行。** 超了就拆开或砍掉。
+- 注释解释**为什么**（不显然的权衡、坑、约束），**绝不**复述代码做了什么。
+- 不要大段块注释，不要把注释当设计文档，不要逐行批注。
+- 导出标识符保留 `revive` 要求的文档注释——同样不超过 3 行。
 
-### 4.2 Scope of work: do only what was asked
+### 4.2 工作范围：只做被要求的事
 
-- **Execute strictly what the user asked for in this turn.** Do not expand, do not extrapolate, do not optimise on the side.
-- **If the user did not explicitly ask for source changes this turn, do not modify any source file** (reading, analysing, proposing and answering are all fine).
-- Do not refactor, reformat, upgrade dependencies, change configuration, touch CI or edit docs on the side — unless explicitly asked.
-- Do not add dependencies (Go modules / npm packages / assets) on your own initiative.
-- When requirements are unclear, run the minimal read-only investigation first (this file, the target file); if still unclear, **ask** — do not guess and change.
-- Changes must be the **smallest necessary change**: one place beats two.
-- **Answer first, act second**: when the user asks a question, answer in prose before considering any change.
-- **Confirm before deleting**: code or behaviour that looks intentional must not be deleted on your own; ask first and act after confirmation.
-- **Never degrade code to satisfy a check**: when types or lint complain, fix the root cause (upgrade the dependency, correct the code). Do **not** reach for `any`, `@ts-ignore`, an unjustified `//nolint`, or deleted logic to work around it.
-- If a user instruction conflicts with this file, state the conflict and ask for confirmation before overriding the rule.
+- **严格只执行用户本轮要求的事。** 不扩张、不外推、不顺手优化。
+- **用户本轮没有明确要求改代码，就不改任何源码**（读、分析、提方案、回答都可以）。
+- 不要顺手重构、重排格式、升级依赖、改配置、动 CI 或改文档——除非明确要求。
+- 不要自作主张新增依赖（Go 模块 / npm 包 / 素材）。
+- 需求不清楚时，先做最小范围的只读调查（本文件、目标文件）；仍不清楚就**问**——不要猜着改。
+- 改动必须是**最小必要改动**：一处胜过两处。
+- **先回答，再动手**：用户提问时，先用文字回答，再考虑要不要改。
+- **删除前确认**：看起来是有意为之的代码或行为，不得自行删除；先问，确认后再动。
+- **绝不能为了让检查通过而降级代码**：类型或 lint 报错时，修根因（升级依赖、改正代码）。
+  **不要**使用 `any`、`@ts-ignore`、无理由的 `//nolint` 或删掉逻辑来绕过。
+- 用户指令与本文件冲突时，先说明冲突、请求确认，再决定是否覆盖规则。
 
-### 4.3 Behaviour boundaries (prohibitions)
+### 4.3 行为边界（禁止事项）
 
-- Never treat "looks correct" as "done" — if it was not verified, say so plainly.
-- **Never delete or skip existing test cases, or loosen lint rules, to make checks pass.** Report failing existing tests; do not hide them.
-- Never invent interfaces, fields, commands or file paths; when unsure, check this file or read the source.
-- **Never hand-edit generated files** (`*.pb.go` under `api/`): change the source (proto) and regenerate.
-- Never commit build output (`bin/`, `dist/`, `node_modules/`, ...), secrets or `.env`.
-- Replies: no pleasantries, no "you're right" agreement padding, no emoji. Give results and facts;
-  when you disagree, **state clearly that you agree or disagree**.
+- 绝不把「看起来对」当成「做完了」——没验证过就明说没验证。
+- **绝不为通过检查而删除或跳过已有用例、放松 lint 规则。** 已有测试失败就如实报告，不要掩盖。
+- 绝不臆造接口、字段、命令或文件路径；不确定就查本文件或读源码。
+- 绝不提交构建产物（`bin/`、`dist/`、`node_modules/` 等）、密钥或 `.env`。
+- 回复：不要客套，不要「你说得对」式附和，不要 emoji。给结果和事实；
+  有不同意见时，**明确说出同意或不同意**。
 
----
+### 4.4 细节归属：具体实现写进源码注释，不进 AGENTS.md
 
-## 5. Code conventions
-
-### 5.1 General
-
-- Indentation, line endings and encoding are governed by `.editorconfig` (tabs for Go, 2 spaces elsewhere, UTF-8 + LF).
-- Run the full check set **only when actually committing or delivering** (commands: §7, `app/AGENTS.md`, `web/AGENTS.md`).
-  For everyday changes run only the narrowest checks per §6.3.
-
-### 5.2 Per-language conventions (applied by directory proximity)
-
-- Go (`app/`, `pkg/`) → `app/AGENTS.md`; shared libraries have further constraints in `pkg/AGENTS.md`.
-- TypeScript / React (`web/`) → `web/AGENTS.md`.
-
-### 5.3 Contract and interface conventions (`api/`)
-
-- **Contract first**: external endpoints and internal RPC are both defined by the proto under `api/`; services never talk through Go package-level interfaces.
-- Proto package path `api/<domain>/<version>`; service names are `<domain>Service` (`buf.yaml` sets `service_suffix: Service`).
-- **One service per file**: `google.api.http` route annotations go directly on the RPCs inside the service; no separate `*Http` service.
-- `<domain>_error_reason.proto` holds a bare `enum ErrorReason` only and **imports no proto**; business code builds errors with
-  `kratos errors.NotFound(ErrorReason_X.String(), ...)`.
-- **Generated output is committed with the source**: `*.pb.go` under `api/` (including `_grpc` / `_http` / `_error_reason`) is tracked;
-  CI re-runs `buf generate` and checks for drift (see `ci.yml`), so always run `make gen` locally after changing a proto.
-- External error bodies are uniformly `application/problem+json` (RFC 9457) with a machine-readable business code.
-- **Single writer per state**: only the owning service may write a given kind of state; other services read it or submit change requests.
-- **Config and secrets**: images contain no config or secrets; everything is injected from the environment. Never commit secrets, certificates or `.env` (see also §10).
-- **Private docs**: `docs-hide/` and `docs-ignore/` are in `.gitignore` and are not committed (usage: §9).
+- **本文件只写规则，不写实现。** 字段的含义与取值、函数的执行步骤、某个分支为什么这么写、
+  单条 SQL 的语义、某个 DTO 的每个成员——这些写在**离代码最近的注释**里。
+- 判据是**作用域**：一句话只对某个类型/函数/分支成立 → 写注释；对多个文件、多类改动都成立
+  → 才写进本文件或对应目录的 AGENTS.md。
+- 写注释不等于写文档：字段只交代**含义与约束**（可取值、单位、来源），不复述代码怎么算；
+  行尾一两句即可，不因「要说清楚」而凑成段落。
+- 不要在 AGENTS.md 里维护**字段字典、函数清单、接口签名副本**：它们随代码变化，抄进文档
+  就必然过期，而过期的文档比没有更糟。
+- 写新代码时**先写注释**：如果一条信息在源码里找不到合适的落脚处，说明它可能是跨文件的
+  结构性规则，那才属于本文件或相应目录的 AGENTS.md。
 
 ---
 
-## 6. Testing principles
+## 5. 代码约定
 
-### 6.1 Test layers
+### 5.1 通用
 
-Pick what is needed; do not pile up tests for show:
+- 缩进、换行符与编码由 `.editorconfig` 决定（Go 用 tab，其余 2 空格，UTF-8 + LF）。
+- **只在真正要提交或交付时**才跑全量检查（命令：§7、`app/AGENTS.md`、`web/AGENTS.md`）。
+  日常改动按 §6.3 只跑最窄的那几项。
 
-| Type | Purpose | Typical approach |
+### 5.2 分语言约定（按目录就近适用）
+
+- Go（`app/`、`pkg/`）→ `app/AGENTS.md`；共享库还有额外约束，见 `pkg/AGENTS.md`。
+- TypeScript / React（`web/`）→ `web/AGENTS.md`。
+
+### 5.3 契约与接口约定
+
+- **HTTP 面就是契约。** 没有 IDL、没有代码生成：路由在 `app/<module>/<module>.go` 里显式注册，
+  请求体是 `internal/<domain>/dto.go` 里的普通结构体。
+- **模块间调用走 Go 接口。** 同一进程，不做任何序列化：消费方声明一个窄接口，
+  `cmd/` 注入实现（见 `app/AGENTS.md`）。模块之间只能 import 对方的公开包；
+  `internal/` 跨模块由编译器挡住。
+- **JSON 约定**（没有 schema 工具校验，必须自觉）：字段名 `snake_case`；64 位整数保持数字类型；
+  枚举用大写字符串名（`LOGIN_TYPE_PHONE_OTP`）；可选字段为空时省略。
+- **业务错误码**是带类型的字符串常量（`login.ErrorReason`），不用内联字面量，且属于公开契约——
+  改名就是破坏性变更。
+- 对外错误体统一为 `application/problem+json`（RFC 9457），并带机器可读的业务码。
+- **同一份状态只有一个写入者**：某类状态只有归属模块能写，其它模块只能读或提交变更请求。
+- **配置与密钥**：镜像里不含配置和密钥，全部由环境注入。绝不提交密钥、证书或 `.env`（另见 §10）。
+- **私有文档**：`docs-hide/` 与 `docs-ignore/` 在 `.gitignore` 里，不提交（用途：§9）。
+
+---
+
+## 6. 测试原则
+
+### 6.1 测试层次
+
+按需选择，不要为撑场面堆测试：
+
+| 类型 | 目的 | 典型做法 |
 | --- | --- | --- |
-| Unit (white box) | Verify the internal logic and branches of a function/method | Go `go test`; Vitest on the frontend, test files next to the source (`*.test.ts`) |
-| Integration | Verify collaboration between components (service + real dependencies) | Bring up the `deploy/compose` dependencies, then run |
-| Contract | Verify proto/REST contracts are not broken | `buf breaking`, interface alignment checks |
-| Smoke | Quickly confirm "it starts and the main path runs" | Build + start + ping probe |
-| End-to-end / black box | Verify from outside, by inputs and outputs only | Exercise the external HTTP/WebSocket interfaces |
-| Regression | After a bug fix, confirm existing behaviour still holds | Re-run the relevant cases |
-| Race detection | Concurrency correctness | `go test -race` |
+| 单元（白盒） | 验证函数/方法的内部逻辑与分支 | Go `go test`；前端 Vitest，测试文件与源码同目录（`*.test.ts`） |
+| 集成 | 验证组件间协作（模块 + 真实依赖） | 起 `deploy/compose` 依赖后运行 |
+| 契约 | 验证 HTTP 契约没被破坏 | 端点测试：状态码、响应字段、错误码 |
+| 冒烟 | 快速确认「能起来、主路径能走」 | 构建 + 启动 + 探活 |
+| 端到端 / 黑盒 | 只从输入输出去验证 | 走外部 HTTP/WebSocket 接口 |
+| 回归 | 修 bug 后确认原有行为仍成立 | 重跑相关用例 |
+| 竞态检测 | 并发正确性 | `go test -race` |
 
-Regression re-runs **only the relevant** cases (see §6.3); note also that the "meaningless verification" listed in §6.4 is not testing.
+回归只重跑**相关**用例（见 §6.3）；另外 §6.4 列出的「无意义验证」不算测试。
 
-### 6.2 Commands for this project
+### 6.2 本项目的命令
 
-- Backend: `make test` (`go test ./...`), `make test-race` (used by CI), `make cover`.
-- Frontend: see `web/AGENTS.md`.
+- 后端全量门禁：`make check` —— 与 CI 同一串命令（build → vet → lint → test `-race`）。
+- 后端收窄：`go test ./app/<module>/...`，只测你动过的包。不要一上来跑全量（§6.3）。
+- 包范围固定用 `./app/...`，绝不用 `./...`：`./...` 会扫到 `web/node_modules` 里的第三方 Go 包，
+  那个目录只有 `npm install` 之后才存在，于是扫到的包集合取决于机器。
+- `-race` 需要 `CGO_ENABLED=1` 加 C 工具链。本地跑不了就交给 CI——不要删 `-race`，
+  否则本地那次就不再是 CI 的忠实副本。
+- 前端：见 `web/AGENTS.md`。
 
-### 6.3 Running the right amount
+### 6.3 跑多少才合适
 
-- **Run the narrowest relevant check**: prefer the cases for the package or file you touched, then that module's checks.
-  Do **not** start by re-running the full suite over and over.
-- **Exhaustive coverage is CI's job**: do not repeat locally what has already passed. Run the full set locally only when the
-  user asks, when diagnosing a CI failure, or when the change genuinely affects the whole repository.
-- After a change, by default run only the tests related to the changed code; passing is enough — there is no need to "run every command".
-- Unless asked, do **not** start time-consuming full builds such as `bun run build`.
+- **跑最相关的最小检查**：优先动过的包或文件对应的用例，其次是该模块的检查。
+  **不要**一开始就反复跑全量。
+- **全覆盖是 CI 的职责**：本地不要重复跑已经通过的东西。只有用户要求、诊断 CI 失败、
+  或改动确实影响全仓时，才在本地跑全量。
+- 改完之后默认只跑与改动相关的测试；过了就够，不需要「把每条命令都跑一遍」。
+- 除非被要求，**不要**启动 `bun run build` 这类耗时的完整构建。
 
-### 6.4 No meaningless "verification" (a common mistake)
+### 6.4 不做无意义的「验证」（常见错误）
 
-Do not run checks that carry no information just to "prove that work happened". None of the following, ever:
+不要为了「证明干了活」去跑不携带任何信息的检查。以下一律不做：
 
-- **Confirming that a directory or file exists** (`ls`, `test -d`, `find` to see whether a directory was created) —
-  the filesystem is self-evident; that is **not a test**.
-- Printing a config file to confirm "it can be read / opened".
-- Empty runs with no assertion and no hypothesis to falsify (e.g. compiling a program that contains only `package main`).
-- Re-running an already-passing command to "confirm the environment is fine".
-- Restating checks already covered by lint / typecheck / CI that produce no new information.
+- **确认目录或文件存在**（`ls`、`test -d`、`find` 看目录建没建）——
+  文件系统自己会说话，这**不是**测试。
+- 打印配置文件以确认「能读 / 能打开」。
+- 没有断言、没有可被推翻的假设的空跑（例如编译一个只有 `package main` 的程序）。
+- 重跑一个已经通过的命令来「确认环境没问题」。
+- 复述 lint / typecheck / CI 已经覆盖、产生不了新信息的检查。
 
-The single criterion: **which concrete hypothesis would this run falsify?** If you cannot answer, do not run it.
-Tests target code behaviour (input → output / side effects), not filesystem state that one command already reveals.
+唯一判据：**这次运行要推翻哪个具体假设？** 答不上来就别跑。
+测试针对代码行为（输入 → 输出 / 副作用），不针对一条命令就能看清的文件系统状态。
 
-### 6.5 Hard requirement: no test artefacts left behind
+### 6.5 硬性要求：不留测试残留
 
-- **Leave no test artefacts in the repository.** Test files, scripts and sample data written temporarily for
-  verification **must be deleted** once verification is done and the conclusion is reached, restoring the workspace
-  to a state consistent with "only the requested changes".
-- **Existing** test files (e.g. `web/src/utils/*.test.ts`) are unaffected; never delete or skip them.
-- Never change assertions, skip cases or delete cases to make tests pass; report failures honestly.
-- Put throwaway scripts in `tmp/` (already in `.gitignore`) and **delete them when done**. Do not cram a multi-line
-  script into a single command, and do not write temporary test files into source directories.
-- Test assets must comply with the compliance red lines in §10; no third-party screenshots, real user data, etc.
+- **仓库里不留测试残留。** 为验证临时写的测试文件、脚本、样例数据，**验证完必须删除**，
+  把工作区恢复到「只有被要求的改动」的状态。
+- **已有**测试文件（如 `web/src/utils/*.test.ts`）不受此限；绝不删除或跳过。
+- 绝不为让测试通过而改断言、跳过用例或删用例；失败就如实报告。
+- 一次性脚本放 `tmp/`（已在 `.gitignore` 里），**用完删掉**。不要把多行脚本压进一条命令，
+  也不要把临时测试文件写进源码目录。
+- 测试素材必须符合 §10 的合规红线；不得使用第三方截图、真实用户数据等。
 
 ---
 
-## 7. Common commands (repository root)
+## 7. 常用命令（仓库根目录）
 
 ```bash
-# ---- backend ----
-make help          # list all targets
-make proto-tools   # install buf and the three protoc plugins (versions pinned to buf.gen.yaml)
-make gen           # buf dep update + lint + generate (proto -> api/)
-make build         # build all services
-make lint          # golangci-lint
-make fmt           # format
-make test          # run tests
-make init          # one-shot setup: .env + dependencies + proto generation + tidy
+# ---- 后端 ----
+make help          # 列出全部目标
+make init          # 一次性初始化：.env + 依赖
+make run           # 用 app/configs/server.yaml 启动服务
+make check         # CI 检查的全部内容：build -> vet -> lint -> test -race
+make fmt           # 格式化（gofmt + goimports）
+make lint-fix      # golangci-lint --fix
 
-make compose-up    # start local dependencies (PG/Redis/Kafka/MinIO/ES)
-make compose-down  # stop local dependencies (keep data volumes)
-make compose-clean # stop and drop data volumes
+make compose-up    # 起本地依赖（PG/Redis/Prometheus/Grafana）
+make compose-down  # 停本地依赖（保留数据卷）
+make compose-clean # 停并删除数据卷
+
+make loadtest-db   # 创建压测库（幂等）
+make loadtest      # 用压测 profile 启动进程（连独立库）
 ```
 
-Local dependency ports (`deploy/compose`): PostgreSQL `15432`, Redis `16379`, Kafka `19092`,
-MinIO `19000` (console `19001`), Elasticsearch `19200`.
+本地依赖端口（`deploy/compose`）：PostgreSQL `15432`、Redis `16379`、
+Prometheus `19090`、Grafana `13000`。
 
-Environment variable template: `.env.example`. Images contain no config or secrets; everything is injected from the environment.
+环境变量模板：`.env.example`。镜像里不含配置和密钥，全部由环境注入。
 
-> Building and starting a single service: `app/AGENTS.md`. Frontend commands and the demo account: `web/AGENTS.md`.
-
----
-
-## 8. Commits and CI
-
-- **Commit only when explicitly asked.** Do not run `git commit` / `git push` / `git add` on your own.
-- **Never run Git commands that destroy other people's work**: `git reset --hard`, `git checkout .`,
-  `git clean -fd`, `git stash`, `git commit --no-verify`, force push.
-- Commit messages in the imperative mood; Conventional Commits recommended: `feat(feed): show "↑ N new posts" hint`.
-- CI gates (`.github/workflows/`, the files are authoritative):
-  - `ci.yml`: `buf lint` / `buf breaking` (PR) / generated-output drift check / `golangci-lint` / `go build` / `go vet` / `go test -race`.
-  - `web-ci.yml`: `bun install --frozen-lockfile` / `lint` / `typecheck` / `test` / `build`.
-- **After changing a proto you must run `make gen` locally and commit the generated output**, otherwise the CI drift check fails.
-- Do not bypass hooks or skip checks; fix the root cause instead of using skip flags.
+> 构建与启动进程：`app/AGENTS.md`。前端命令与演示账号：`web/AGENTS.md`。
 
 ---
 
-## 9. Information precedence
+## 8. 提交与 CI
 
-When sources conflict: **source code and configuration > this file > README > docs-hide**. `docs-ignore` does not participate.
-
----
-
-## 10. Security and compliance red lines (mandatory)
-
-This project is distributed publicly as source, so anything that enters the repository is redistributed.
-
-- **Absolutely forbidden** to commit: third-party product screenshots/recordings/designs, third-party logos and brand
-  assets, unauthorised images/fonts/audio, code of unknown origin or with incompatible licensing, and **real user data**
-  (names, phone numbers, ID numbers, avatars, ...).
-- **Do not pixel-copy** third-party product interfaces, do not copy their icon shapes or copy text, and do not claim any association with a product.
-- Check licences before adding a dependency: **no** GPL/AGPL/LGPL/SSPL/BSL; MIT/ISC/Apache-2.0/BSD are acceptable;
-  anything requiring attribution (e.g. CC-BY) must be recorded.
-- Never commit secrets, certificates or `.env`; configuration and secrets are always injected from the environment.
+- **只在明确要求时提交。** 不要自行执行 `git commit` / `git push` / `git add`。
+- **绝不执行会毁掉别人工作的 Git 命令**：`git reset --hard`、`git checkout .`、
+  `git clean -fd`、`git stash`、`git commit --no-verify`、force push。
+- 提交信息用祈使语气；推荐 Conventional Commits：`feat(feed): 显示「↑ N 条新内容」提示`。
+- CI 门禁（`.github/workflows/`，以文件为准）：
+  - `ci.yml`：`golangci-lint` / `go build` / `go vet` / `go test -race`。
+  - `web-ci.yml`：`bun install --frozen-lockfile` / `lint` / `typecheck` / `test` / `build`。
+- 不要绕过 hook 或跳过检查；修根因，而不是用跳过参数。
 
 ---
 
-## 11. Changing this file
+## 9. 信息优先级
 
-- This file is a **living document**. When project structure, commands or conventions change, update it — but **only when the user explicitly asks**.
-- Language-level details belong in the per-directory files (`web/AGENTS.md` / `app/AGENTS.md` / `pkg/AGENTS.md`); do not let them flow back here.
+来源冲突时：**源码与配置 > 本文件 > README > docs-hide**。`docs-ignore` 不参与。
+
+---
+
+## 10. 安全与合规红线（强制）
+
+本项目以源码形式公开发布，所以进入仓库的任何东西都会被再分发。
+
+- **绝对禁止**提交：第三方产品的截图/录屏/设计稿、第三方 logo 与品牌素材、
+  未授权的图片/字体/音频、来源不明或授权不兼容的代码，以及**真实用户数据**
+  （姓名、手机号、身份证号、头像等）。
+- **不要照抄像素**：不逐像素复刻第三方产品界面，不复制其图标形状与文案，不声称与任何产品有关联。
+- 添加依赖前先查许可证：**禁止** GPL/AGPL/LGPL/SSPL/BSL；MIT/ISC/Apache-2.0/BSD 可以；
+  需要署名的（如 CC-BY）必须记录。
+- 绝不提交密钥、证书或 `.env`；配置与密钥一律由环境注入。
+
+---
+
+## 11. 修改本文件
+
+- 本文件是**活文档**。项目结构、命令或约定变化时应更新它——但**只在用户明确要求时**。
+- 语言级细节属于各目录文件（`web/AGENTS.md` / `app/AGENTS.md` / `app/identity/AGENTS.md` /
+  `pkg/AGENTS.md`），不要让它们回流到这里。

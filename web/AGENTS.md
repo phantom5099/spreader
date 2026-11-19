@@ -1,82 +1,82 @@
-# AGENTS.md — web/ (frontend) working agreement
+# AGENTS.md — web/（前端）工作约定
 
-> This directory is a standalone Vite project with its own `package.json`, lockfile and toolchain.
-> When working on files inside it, **this file's rules take precedence over the root `AGENTS.md`**
-> (the root file keeps repository-level rules only).
+> 本目录是独立的 Vite 工程，自带 `package.json`、lockfile 与工具链。
+> 改动本目录下的文件时，**本文件的规则优先于根 `AGENTS.md`**
+> （根文件只保留仓库级规则）。
 
-## Stack
+## 技术栈
 
-| Item | Choice | Source of truth |
+| 项 | 选型 | 事实源 |
 | --- | --- | --- |
-| Framework | React 19 | `package.json` |
-| Build | Vite 6 | `package.json` |
-| Language | TypeScript 5 (`strict`, `noUnusedLocals`, `noUnusedParameters`) | `tsconfig.json` |
-| Routing | react-router-dom 7 | `package.json` |
-| State | Zustand | `package.json` |
-| Icons | lucide-react | `package.json` |
+| 框架 | React 19 | `package.json` |
+| 构建 | Vite 6 | `package.json` |
+| 语言 | TypeScript 5（`strict`、`noUnusedLocals`、`noUnusedParameters`） | `tsconfig.json` |
+| 路由 | react-router-dom 7 | `package.json` |
+| 状态 | Zustand | `package.json` |
+| 图标 | lucide-react | `package.json` |
 | Lint | ESLint 10 + typescript-eslint + react-hooks + react-refresh | `eslint.config.js` |
-| Tests | Vitest | `vitest.config.ts` |
-| Package manager | Bun (`packageManager: bun@1.4.0`, lockfile `bun.lock`) | `package.json` |
+| 测试 | Vitest | `vitest.config.ts` |
+| 包管理器 | Bun（`packageManager: bun@1.4.0`，lockfile `bun.lock`） | `package.json` |
 
-## Directory structure
+## 目录结构
 
 ```
 web/
-├── src/                # client (the only client source dir; admin code must not live here)
-│   ├── pages/          # route pages
-│   ├── components/     # components, grouped by module (feed / post / comment / message / ...)
-│   ├── hooks/          # custom hooks (useXxx.ts)
-│   ├── mocks/          # data layer (api.ts is the only data entry point)
-│   ├── stores/         # Zustand global state
-│   ├── styles/         # design tokens and global styles (tokens.css / app.css)
-│   ├── types/          # type definitions
-│   └── utils/          # utility functions
-├── admin/              # admin console — an independent app (own process, entry and output)
-│   ├── pages/          # admin route pages
-│   ├── components/     # shared admin components
-│   ├── stores/         # admin session / toast
-│   ├── mocks/          # adminApi.ts: the only data entry point (swap point for the real backend)
+├── src/                # 客户端（唯一的客户端源码目录；管理端代码不得放这里）
+│   ├── pages/          # 路由页面
+│   ├── components/     # 组件，按模块分组（feed / post / comment / message / ...）
+│   ├── hooks/          # 自定义 hook（useXxx.ts）
+│   ├── mocks/          # 数据层（api.ts 是唯一数据入口）
+│   ├── stores/         # Zustand 全局状态
+│   ├── styles/         # 设计令牌与全局样式（tokens.css / app.css）
+│   ├── types/          # 类型定义
+│   └── utils/          # 工具函数
+├── admin/              # 管理后台——独立应用（独立进程、独立入口与产物）
+│   ├── pages/          # 管理端路由页面
+│   ├── components/     # 管理端共享组件
+│   ├── stores/         # 管理端会话 / toast
+│   ├── mocks/          # adminApi.ts：唯一数据入口（接真实后端时换这里）
 │   ├── styles/         # admin.css
-│   └── main.tsx App.tsx types.ts labels.ts   # entry / routes / DTO types / label maps
-├── admin.html          # admin HTML entry (build input of vite.admin.config.ts)
-├── scripts/            # validation scripts (check-*.cjs)
+│   └── main.tsx App.tsx types.ts labels.ts   # 入口 / 路由 / DTO 类型 / 文案映射
+├── admin.html          # 管理端 HTML 入口（vite.admin.config.ts 的构建输入）
+├── scripts/            # 校验脚本（check-*.cjs）
 ├── eslint.config.js
-├── vite.config.ts            # client config (port 5173, output dist/client)
-├── vite.admin.config.ts      # admin config (port 5174, output dist/admin)
+├── vite.config.ts            # 客户端配置（端口 5173，产物 dist/client）
+├── vite.admin.config.ts      # 管理端配置（端口 5174，产物 dist/admin）
 ├── vitest.config.ts
 └── package.json
 ```
 
-## Conventions (mandatory when changing frontend code)
+## 约定（改前端代码时的强制要求）
 
-- Keep TypeScript `strict` at **0 errors**.
-- Component files use `PascalCase.tsx`, styles use the same-named `PascalCase.module.css` (all existing components here follow this pairing).
-- Hooks are named `useXxx` and live in `src/hooks/`.
-- Colours / sizes / motion **must** use CSS variables (design tokens in `src/styles/tokens.css`); **hard-coded colour values are forbidden**.
-- Interactive elements need an `aria-label`; decorative icons need `aria-hidden`.
-- Admin code lives in `admin/` only and shares nothing at runtime with the client; the two apps are separate processes with separate build outputs.
-- Icons use `lucide-react` only; do not add another icon library and do not copy third-party brand icon shapes.
-- Comments explain **why** only, at most 3 lines (root file §4.1).
+- TypeScript `strict` 保持 **0 错误**。
+- 组件文件用 `PascalCase.tsx`，样式用同名的 `PascalCase.module.css`（现有组件都遵循这个配对）。
+- hook 命名为 `useXxx`，放在 `src/hooks/`。
+- 颜色 / 尺寸 / 动效**必须**使用 CSS 变量（设计令牌在 `src/styles/tokens.css`）；**禁止硬编码颜色值**。
+- 可交互元素需要 `aria-label`；装饰性图标需要 `aria-hidden`。
+- 管理端代码只放 `admin/`，运行时与客户端不共享任何东西；两个应用是独立进程、独立构建产物。
+- 图标只用 `lucide-react`；不要引入其它图标库，不要复制第三方品牌图标的形状。
+- 注释只解释**为什么**，最多 3 行（根文件 §4.1）。
 
-## Commands
+## 命令
 
 ```bash
-bun install         # install dependencies (first time)
-bun run dev         # client dev server -> http://localhost:5173
-bun run dev:admin   # admin dev server  -> http://localhost:5174
-bun run build       # type check + build both apps -> web/dist/client + web/dist/admin
-bun run build:admin # build the admin console only -> web/dist/admin
-bun run preview       # preview the client build -> http://localhost:4173
-bun run preview:admin # preview the admin build   -> http://localhost:4174
-bun run typecheck   # type check only
+bun install         # 安装依赖（首次）
+bun run dev         # 客户端开发服务器 -> http://localhost:5173
+bun run dev:admin   # 管理端开发服务器 -> http://localhost:5174
+bun run build       # 类型检查 + 构建两个应用 -> web/dist/client + web/dist/admin
+bun run build:admin # 只构建管理端 -> web/dist/admin
+bun run preview       # 预览客户端构建 -> http://localhost:4173
+bun run preview:admin # 预览管理端构建   -> http://localhost:4174
+bun run typecheck   # 只做类型检查
 bun run lint        # ESLint
-bun run test        # Vitest (single run)
-bun run test:watch  # Vitest (watch)
+bun run test        # Vitest（单次运行）
+bun run test:watch  # Vitest（watch 模式）
 ```
 
-## Testing
+## 测试
 
-- Test files live next to the source, named `*.test.ts(x)`; config in `vitest.config.ts`.
-- Existing tests: `src/utils/*.test.ts` — never delete or skip them.
-- Tests written temporarily for verification **must be deleted when done**; do not leave them in the repository (root file §6.5).
-- Do not perform meaningless "verification" (e.g. `ls` to confirm a directory or file exists, running an assertion-free script): see root file §6.4.
+- 测试文件与源码同目录，命名 `*.test.ts(x)`；配置在 `vitest.config.ts`。
+- 已有测试：`src/utils/*.test.ts` —— 绝不删除或跳过。
+- 为验证临时写的测试**做完必须删除**，不要留在仓库里（根文件 §6.5）。
+- 不要做无意义的「验证」（例如 `ls` 确认目录或文件存在、跑没有断言的脚本）：见根文件 §6.4。
